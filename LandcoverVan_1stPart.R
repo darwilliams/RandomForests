@@ -97,8 +97,47 @@ objects.raw <- readOGR(dsn=objects.path, layer=objects.filename)
 points.raw <- readOGR(dsn=points.path, layer=points.filename) 
 
 # clip artefacts away from unclassified object edge using lidar boundary
+  # ?readOGR
+  # van_lidar_boundary <- readOGR(dsn ="D:\\RandomForests\\Data\\Vancouver\\shp", layer ="Vancouver_nDSM_domain")
+  # plot(van_lidar_boundary)
+  # # now how to clip?
+  
+  
+# change column names to be meaningful for points and objects
+  names (points.raw) [11:24]
+c <- c("Point_Number","Onem_Class_1_1st_choice","Onem_Class_1_2nd_choice","Onem_Class_2_1st_choice",
+       "Onem_Class_2_2nd_choice", "Onem_Class_3_1st_choice", "Onem_Class_3_2nd_choice",
+       "Fivem_Class1_1st_choice","Fivem_Class1_2nd_choice","Fivem_Class_2_1st_choice",
+       "Fivem_Class_2_2nd_choice","Fivem_Class_3_1st_choice","Fivem_Class_3_2nd_choice",
+       "Classifier_notes")
+names (points.raw) [11:24] <- c
+names(points.raw)
 
-van_lidar_boundary <- readOGR("D:\\RandomForests\\Data\\Vancouver\\shp\\Vancouver_nDSM_domain.shp")
+names(objects.raw) #this one is fine
+
+
+# fix any broken names - similar to below but use the other classes
+# change shrub to trees and correct other spelling errors
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Tree_canopy", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "tree_Canopy", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Tree_Canopy", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Shrub", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "shrub", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Buildings", replacement = "Building")
+# t1_ref_1m_long
+# t1_ref_1m_long$class
+# # remove null values and name column
+# t1_ref_1m_long <- t1_ref_1m_long %>% select(-name) %>% filter(class != "<NA>", class != " ", class != "")
+# t1_ref_1m_long
+# 
+# t1_ref_5m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "Tree_canopy", replacement = "Trees")
+# t1_ref_5m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "tree_Canopy", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Tree_Canopy", replacement = "Trees")
+# t1_ref_5m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "Shrub", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "shrub", replacement = "Trees")
+# t1_ref_5m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "Buildings", replacement = "Building")
+# t1_ref_5m_long
+# t1_ref_5m_long$class
 
 ## filter points to keep only the desired GT level ("one" or "onefivematch")
 if (params$GT.type == "one") {
