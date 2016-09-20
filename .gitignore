@@ -1,9 +1,11 @@
 .Rproj.user
 .Rhistory
 .RData
-.shp
-.prj
-.shx
-.cpg
-.sbn
-.sbx
+*.shp
+*.prj
+*.shx
+*.cpg
+*.sbn
+*.sbx
+*.dbf
+
