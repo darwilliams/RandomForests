@@ -4,37 +4,6 @@ rm(list=ls())  ## remove all variables
 start.message <- sprintf("Vancouver landuse/landcover classification, started running on %s", Sys.time())
 print(start.message)
 
-#### PARAMETERS ---------------------------------------------
-
-params <- list()
-
-## General
-params$GT.types <- c("one", "onefivematch")   ## type of GT (to be put in a loop to see both results)
-# params$predictor.types <- c("all", "spectral", "LiDAR")
-params$predictor.types <- c("all")
-params$predictors.all <- c("Border_ind", "Bright_vis", "Building", "Coef_Var_n", "Compactnes", "Density", "Elliptic_F", "GLCM_Contr", "GLCM_Con_1", "GLCM_Homog", "GLCM_Hom_1",
-                           "Imagery_Br", "LengthThic", "LengthWidt", "MaxHtMinHt", "Mean_nDSM", "Mean_nDSMS", "Mean_slope", "Mean_zDev", "NDRE", "NDVI", "NDVIRE", "NIRRE",
-                           "Rectangula", "Rel_border", "Rel_bord_1", "Rel_bord_2", "Roundness", "SAVI", "sd_ndsm", "sd_slope", "Shrub", "Standard_d", "Thickness_", "Trees")   ## list of all starting predictors 
-# params$predictors.spectral <- 
-# params$predictors.LiDAR <-
-
-## RF
-params$nfold <- 4
-params$seed <- 2016        ## seed to have same RF result
-params$parallel.RF <- T    ## whether to run RF in parallel or not
-params$ntree <- 100     ## RF nr of trees
-params$mtry <- 'sqrt_nr_var'  ## how to set RF mtry: 'sqrt_nr_var' or 'nr_var_div_3'
-params$nodesize <- 1   ## RF nodesize: default for classification is 1
-params$plot.importance <- F  ## whether to plot RF variable importance
-
-base.dir <- 'D:/Research/ANALYSES/LandcoverVan'    ## base working directory
-
-points.filename <- "Van_unclassified_SJ_unambig"
-points.folder <- "Van_unclassified_spatialJoin"
-objects.filename <- "Vancouver_unclassified_final_v8_SMALL"
-objects.folder <- "Van_unclassified_objects"
-
-
 #### LOAD PACKAGES ----------------------------------------------------------
 
 list.of.packages <- c("caret",
@@ -66,6 +35,36 @@ for (pack in list.of.packages){
   library(pack, character.only=TRUE)  ## call all the packages in list.of.packages
 }
 
+#### PARAMETERS ---------------------------------------------
+
+params <- list()
+
+## General
+params$GT.types <- c("one", "onefivematch")   ## type of GT (to be put in a loop to see both results)
+# params$predictor.types <- c("all", "spectral", "LiDAR")
+params$predictor.types <- c("all")
+params$predictors.all <- c("Border_ind", "Bright_vis", "Building", "Coef_Var_n", "Compactnes", "Density", "Elliptic_F", "GLCM_Contr", "GLCM_Con_1", "GLCM_Homog", "GLCM_Hom_1",
+                           "Imagery_Br", "LengthThic", "LengthWidt", "MaxHtMinHt", "Mean_nDSM", "Mean_nDSMS", "Mean_slope", "Mean_zDev", "NDRE", "NDVI", "NDVIRE", "NIRRE",
+                           "Rectangula", "Rel_border", "Rel_bord_1", "Rel_bord_2", "Roundness", "SAVI", "sd_ndsm", "sd_slope", "Shrub", "Standard_d", "Thickness_", "Trees")   ## list of all starting predictors 
+# params$predictors.spectral <- 
+# params$predictors.LiDAR <-
+
+## RF
+params$nfold <- 4
+params$seed <- 2016        ## seed to have same RF result
+params$parallel.RF <- T    ## whether to run RF in parallel or not
+params$ntree <- 100     ## RF nr of trees
+params$mtry <- 'sqrt_nr_var'  ## how to set RF mtry: 'sqrt_nr_var' or 'nr_var_div_3'
+params$nodesize <- 1   ## RF nodesize: default for classification is 1
+params$plot.importance <- F  ## whether to plot RF variable importance
+
+base.dir <- 'D:/RandomForests'    ## base working directory
+
+points.filename <- "VanSubsetPoints_Buffer_SJ_unambig"
+points.folder <- "Vancouver/shp"
+objects.filename <- "Vancouver_unclassified_final_v9"
+objects.folder <- "Vancouver/shp"
+
 #### FUNCTIONS ----------------------------------------------------------
 
 ## returns F-measure for each class and global Kappa statistic
@@ -91,6 +90,53 @@ objects.path <- file.path(data.dir, objects.folder, fsep = .Platform$file.sep)
 points.path <- file.path(data.dir, points.folder, fsep = .Platform$file.sep) 
 # objects.raw <- readOGR(dsn=objects.path, layer=objects.filename) ## smallest polyg subset, the one with only 9 plots/polyg
 points.raw <- readOGR(dsn=points.path, layer=points.filename) ## smallest polyg subset, the one with only 9 plots/polyg
+
+plot(objects.raw)
+
+# clip artefacts away from unclassified object edge using lidar boundary
+van_lidar_boundary <- readOGR(dsn ="D:\\RandomForests\\Data\\Vancouver\\shp", layer ="Vancouver_nDSM_domain")
+plot(van_lidar_boundary)
+# now to clip using sp::over
+objects_backup <- objects.raw
+objects_clip <- objects_backup[van_lidar_boundary,] # this is equivalent to...
+# sel <- over(objects_backup, van_lidar_boundary)
+# objects_clip <- stations_backup[!is.na(sel[,1]),]
+plot(objects_clip)
+
+# change column names to be meaningful for points and objects
+names (points.raw) [11:24]
+c <- c("Point_Number","Onem_Class_1_1st_choice","Onem_Class_1_2nd_choice","Onem_Class_2_1st_choice",
+       "Onem_Class_2_2nd_choice", "Onem_Class_3_1st_choice", "Onem_Class_3_2nd_choice",
+       "Fivem_Class1_1st_choice","Fivem_Class1_2nd_choice","Fivem_Class_2_1st_choice",
+       "Fivem_Class_2_2nd_choice","Fivem_Class_3_1st_choice","Fivem_Class_3_2nd_choice",
+       "Classifier_notes")
+names (points.raw) [11:24] <- c
+names(points.raw)
+
+names(objects.raw) #this one is fine
+
+# fix any broken names - similar to below but use the other classes
+# change shrub to trees and correct other spelling errors
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Tree_canopy", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "tree_Canopy", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Tree_Canopy", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Shrub", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "shrub", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Buildings", replacement = "Building")
+# t1_ref_1m_long
+# t1_ref_1m_long$class
+# # remove null values and name column
+# t1_ref_1m_long <- t1_ref_1m_long %>% select(-name) %>% filter(class != "<NA>", class != " ", class != "")
+# t1_ref_1m_long
+# 
+# t1_ref_5m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "Tree_canopy", replacement = "Trees")
+# t1_ref_5m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "tree_Canopy", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Tree_Canopy", replacement = "Trees")
+# t1_ref_5m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "Shrub", replacement = "Trees")
+# t1_ref_1m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "shrub", replacement = "Trees")
+# t1_ref_5m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "Buildings", replacement = "Building")
+# t1_ref_5m_long
+# t1_ref_5m_long$class
 
 
 # ## initialize empty factor matrix with appropriate levels to store final class predictions at each round of the Leave-one-out cross-validation loop for each scenario
