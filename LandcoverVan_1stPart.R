@@ -28,12 +28,12 @@ params$mtry <- 'sqrt_nr_var'  ## how to set RF mtry: 'sqrt_nr_var' or 'nr_var_di
 params$nodesize <- 1   ## RF nodesize: default for classification is 1
 params$plot.importance <- F  ## whether to plot RF variable importance
 
-base.dir <- 'D:/Research/ANALYSES/LandcoverVan'    ## base working directory
+base.dir <- 'D:/RandomForests'    ## base working directory
 
-points.filename <- "Van_unclassified_SJ_unambig"
-points.folder <- "Van_unclassified_spatialJoin"
-objects.filename <- "Vancouver_unclassified_final_v8_SMALL"
-objects.folder <- "Van_unclassified_objects"
+points.filename <- "VanSubsetPoints_Buffer_SJ_unambig"
+points.folder <- "Vancouver/shp"
+objects.filename <- "Vancouver_unclassified_final_v8"
+objects.folder <- "Vancouver/shp/VanUnclassified_old"
 
 
 #### LOAD PACKAGES ----------------------------------------------------------
@@ -82,16 +82,23 @@ classif.metrics <- function(predicted, observed) {
 tic <- proc.time() ## start clocking global time
 
 data.dir <- file.path(base.dir, "Data", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
+dir.create(data.dir)
 results.dir <- file.path(base.dir, "Results", fsep = .Platform$file.sep)   ## results directory (outputs go here)
+dir.create(results.dir)
 figures.dir <- file.path(base.dir, "Figures", fsep = .Platform$file.sep)   ## figures directory (figures go here)
+dir.create(figures.dir)
 # temp.dir <- file.path(data.dir, "temp")  ## directory for temporary files like the segmentation shps (overwritten each time)
 # if (!file.exists(temp.dir)) {dir.create(temp.dir, showWarnings=F, recursive=T)}  ## create it
 
 ## read shapefiles
 objects.path <- file.path(data.dir, objects.folder, fsep = .Platform$file.sep) 
 points.path <- file.path(data.dir, points.folder, fsep = .Platform$file.sep) 
-objects.raw <- readOGR(dsn=objects.path, layer=objects.filename) ## smallest polyg subset, the one with only 9 plots/polyg
-points.raw <- readOGR(dsn=points.path, layer=points.filename) ## smallest polyg subset, the one with only 9 plots/polyg
+objects.raw <- readOGR(dsn=objects.path, layer=objects.filename) 
+points.raw <- readOGR(dsn=points.path, layer=points.filename) 
+
+# clip artefacts away from unclassified object edge using lidar boundary
+
+van_lidar_boundary <- readOGR("D:\\RandomForests\\Data\\Vancouver\\shp\\Vancouver_nDSM_domain.shp")
 
 ## filter points to keep only the desired GT level ("one" or "onefivematch")
 if (params$GT.type == "one") {
