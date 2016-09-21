@@ -88,12 +88,15 @@ points.raw <- readOGR(dsn=points.path, layer=points.filename)
 
 plot(objects.raw)
 
-# use names from objects_table to rename objects.raw attribute table
-names(objects.raw@data)
 
-objects_table <- fread("D:\\RandomForests\\Data\\Vancouver\\shp\\Vancouver_unclassified_final_v9.txt")
+#### Changing column names and data wrangling ----------------------------------------
+
+# use names from objects_table to rename objects.raw attribute table
+objects_table <- fread("D:\\RandomForests\\Data\\Vancouver\\shp\\Vancouver_unclassified_final_v9.txt") #read in data table
+
 # compare names of objects_table to objects.raw@data
-class(names(objects_table)["Border_ind"])
+names(objects.raw@data)
+names(objects_table)
 
 # change data table names to make them more readable
 oldnames1 <- c("GLCMCon_nD", "GLCM_Contr", "GLCMHom_nD", "GLCMHomNIR", "Imag_Brigh", "Len_divThi", "Len_divWid")
@@ -116,14 +119,31 @@ oldnames5 <- c("RelBord_bl", "RelBord_tr", "RelBord_un")
 newnames5 <- c("RelBord_bldg", "RelBord_trees", "RelBord_unclass")
 setnames(objects_table, oldnames5, newnames5)
 
-
-
-# remove building and trees classification columns from data table
-objects_table <- objects_table[,-c("Building","Trees")]
+names(objects.raw@data)
 names(objects_table)
-names(objects_table)[2:43]
+
+# remove FID, building and trees classification columns from data table
+objects_table_short <- objects_table[,c("FID","Building","Trees"):=NULL]
+names(objects_table_short)
+names(objects_table)
+
+# remove buildings and trees from objects.raw
+drops <- c("Building","Trees")
+objects.raw.short <- objects.raw[,!(names(objects.raw) %in% drops)]
+
+# compare to make sure the names are the same length
+names(objects.raw.short)
+names(objects_table_short)[42]
+names(objects.raw.short)[42]
+
+# set names of objects.raw.short to object_table short
+names(objects_table_short) <-  make.names(names(objects_table_short), unique = TRUE)
+names(objects.raw.short) <- names(objects_table_short)
+# note that "/" had been changed to "."
+names(objects.raw.short)
 
 # also need to remove NAs from unambiguous points
+
 
 # initialize params as list
 params <- list()
