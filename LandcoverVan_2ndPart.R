@@ -4,6 +4,8 @@ rm(list=ls())  ## remove all variables
 start.message <- sprintf("Vancouver landuse/landcover classification, started running on %s", Sys.time())
 print(start.message)
 
+setwd("D:\\RandomForests")
+
 #### LOAD PACKAGES ----------------------------------------------------------
 
 list.of.packages <- c("caret",
@@ -27,7 +29,8 @@ list.of.packages <- c("caret",
                       "lubridate", 
                       "doParallel", 
                       "foreach",
-                      "data.table"
+                      "data.table",
+                      "tidyverse"
 )
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   ## named vector members whose name is "Package"
 if(length(new.packages)) install.packages(new.packages)   ## install only unavailable packages
@@ -37,17 +40,44 @@ for (pack in list.of.packages){
 
 #### PARAMETERS ---------------------------------------------
 
-params <- list()
+# read in attribute table for unclassified objects
+objects_table <- read.csv("D:\\RandomForests\\Data\\Vancouver\\shp\\Vancouver_unclassified_final_v9.txt")
+str(objects_table)
+names(objects_table)
+names(objects_table)[9:15]
+newnames1 <- c("GLCMCon_nDSM", "GLCMCon_NIR", "GLCMHom_nDSM", "GLCMHomNIR", "Imag_Brightness", "Len/Thick", "Len/Width")
+names(objects_table)[9:15] <- newnames1
+names(objects_table)[22] <- "Mean_RE"
+names(objects_table)[26] <- "nDSM/SD_nDSM"
+names(objects_table)[29] <- "NIR/RE"
+names(objects_table)[31:33]
+newnames2 <- c("RelBord_bldg", "RelBord_trees", "RelBord_unclass")
+names(objects_table)[31:33] <- newnames2
 
+
+# remove building and trees classification columns from data table
+objects_table <- objects_table[,-c(4,45)]
+names(objects_table)
+names(objects_table)[2:43]
+
+# initialize params as list
+params <- list()
 ## General
 params$GT.types <- c("one", "onefivematch")   ## type of GT (to be put in a loop to see both results)
-# params$predictor.types <- c("all", "spectral", "LiDAR")
-params$predictor.types <- c("all")
-params$predictors.all <- c("Border_ind", "Bright_vis", "Building", "Coef_Var_n", "Compactnes", "Density", "Elliptic_F", "GLCM_Contr", "GLCM_Con_1", "GLCM_Homog", "GLCM_Hom_1",
-                           "Imagery_Br", "LengthThic", "LengthWidt", "MaxHtMinHt", "Mean_nDSM", "Mean_nDSMS", "Mean_slope", "Mean_zDev", "NDRE", "NDVI", "NDVIRE", "NIRRE",
-                           "Rectangula", "Rel_border", "Rel_bord_1", "Rel_bord_2", "Roundness", "SAVI", "sd_ndsm", "sd_slope", "Shrub", "Standard_d", "Thickness_", "Trees")   ## list of all starting predictors 
-# params$predictors.spectral <- 
-# params$predictors.LiDAR <-
+params$predictor.types <- c("all","spectral","LiDAR","geometric")
+params$predictors.all <- names(objects_table)[2:43]   ## list of all starting predictors 
+params$predictors.spectral <- subset(objects_table, select = c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
+                                                               "Mean_Blue", "Mean_Green", "Mean_Red", "Mean_RE","NDRE", 
+                                                               "nDSM/SD_nDSM", "NDVI", "NDVIRE","NIR/RE","SAVI","sd_red", 
+                                                               "sd_blue", "sd_RE", "sd_NIR"))
+params$predictors.LiDAR <- subset(objects_table, select = c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
+                                                            "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
+                                                            "nDSM/SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev"))
+params$predictors.geometric <- subset(objects_table, select = c("Border_ind", "Compactnes", "Density", "EllipticFi",
+                                                                "Len/Thick", "Len/Width", "RectangFit","RelBord_bldg",
+                                                                "RelBord_trees", "RelBord_unclass", "Roundness", "Thick_pxl"))
+glimpse(params)
+
 
 ## RF
 params$nfold <- 4
@@ -80,16 +110,19 @@ classif.metrics <- function(predicted, observed) {
 tic <- proc.time() ## start clocking global time
 
 data.dir <- file.path(base.dir, "Data", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
+dir.create(data.dir)
 results.dir <- file.path(base.dir, "Results", fsep = .Platform$file.sep)   ## results directory (outputs go here)
+dir.create(results.dir)
 figures.dir <- file.path(base.dir, "Figures", fsep = .Platform$file.sep)   ## figures directory (figures go here)
+dir.create(figures.dir)
 # temp.dir <- file.path(data.dir, "temp")  ## directory for temporary files like the segmentation shps (overwritten each time)
 # if (!file.exists(temp.dir)) {dir.create(temp.dir, showWarnings=F, recursive=T)}  ## create it
 
 ## read shapefiles
 objects.path <- file.path(data.dir, objects.folder, fsep = .Platform$file.sep) 
 points.path <- file.path(data.dir, points.folder, fsep = .Platform$file.sep) 
-# objects.raw <- readOGR(dsn=objects.path, layer=objects.filename) ## smallest polyg subset, the one with only 9 plots/polyg
-points.raw <- readOGR(dsn=points.path, layer=points.filename) ## smallest polyg subset, the one with only 9 plots/polyg
+objects.raw <- readOGR(dsn=objects.path, layer=objects.filename) 
+points.raw <- readOGR(dsn=points.path, layer=points.filename) 
 
 plot(objects.raw)
 
