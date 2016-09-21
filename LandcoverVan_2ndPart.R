@@ -40,44 +40,6 @@ for (pack in list.of.packages){
 
 #### PARAMETERS ---------------------------------------------
 
-# read in attribute table for unclassified objects
-objects_table <- read.csv("D:\\RandomForests\\Data\\Vancouver\\shp\\Vancouver_unclassified_final_v9.txt")
-str(objects_table)
-names(objects_table)
-names(objects_table)[9:15]
-newnames1 <- c("GLCMCon_nDSM", "GLCMCon_NIR", "GLCMHom_nDSM", "GLCMHomNIR", "Imag_Brightness", "Len/Thick", "Len/Width")
-names(objects_table)[9:15] <- newnames1
-names(objects_table)[22] <- "Mean_RE"
-names(objects_table)[26] <- "nDSM/SD_nDSM"
-names(objects_table)[29] <- "NIR/RE"
-names(objects_table)[31:33]
-newnames2 <- c("RelBord_bldg", "RelBord_trees", "RelBord_unclass")
-names(objects_table)[31:33] <- newnames2
-
-
-# remove building and trees classification columns from data table
-objects_table <- objects_table[,-c(4,45)]
-names(objects_table)
-names(objects_table)[2:43]
-
-# initialize params as list
-params <- list()
-## General
-params$GT.types <- c("one", "onefivematch")   ## type of GT (to be put in a loop to see both results)
-params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$predictors.all <- names(objects_table)[2:43]   ## list of all starting predictors 
-params$predictors.spectral <- subset(objects_table, select = c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
-                                                               "Mean_Blue", "Mean_Green", "Mean_Red", "Mean_RE","NDRE", 
-                                                               "nDSM/SD_nDSM", "NDVI", "NDVIRE","NIR/RE","SAVI","sd_red", 
-                                                               "sd_blue", "sd_RE", "sd_NIR"))
-params$predictors.LiDAR <- subset(objects_table, select = c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
-                                                            "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
-                                                            "nDSM/SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev"))
-params$predictors.geometric <- subset(objects_table, select = c("Border_ind", "Compactnes", "Density", "EllipticFi",
-                                                                "Len/Thick", "Len/Width", "RectangFit","RelBord_bldg",
-                                                                "RelBord_trees", "RelBord_unclass", "Roundness", "Thick_pxl"))
-glimpse(params)
-
 
 ## RF
 params$nfold <- 4
@@ -125,6 +87,61 @@ objects.raw <- readOGR(dsn=objects.path, layer=objects.filename)
 points.raw <- readOGR(dsn=points.path, layer=points.filename) 
 
 plot(objects.raw)
+
+# use names from objects_table to rename objects.raw attribute table
+names(objects.raw@data)
+
+objects_table <- fread("D:\\RandomForests\\Data\\Vancouver\\shp\\Vancouver_unclassified_final_v9.txt")
+# compare names of objects_table to objects.raw@data
+class(names(objects_table)["Border_ind"])
+
+# change data table names to make them more readable
+oldnames1 <- c("GLCMCon_nD", "GLCM_Contr", "GLCMHom_nD", "GLCMHomNIR", "Imag_Brigh", "Len_divThi", "Len_divWid")
+newnames1 <- c("GLCMCon_nDSM", "GLCMCon_NIR", "GLCMHom_nDSM", "GLCMHomNIR", "Imag_Brightness", "Len/Thick", "Len/Width")
+setnames(objects_table, oldnames1, newnames1)
+
+oldnames2 <- "Mean_Red_E"
+newnames2 <- "Mean_RE"
+setnames(objects_table, oldnames2, newnames2)
+
+oldnames3 <- "nDSM_divDS"
+newnames3 <- "nDSM/SD_nDSM"
+setnames(objects_table, oldnames3, newnames3)
+
+oldnames4 <- "NIR_div_RE"
+newnames4 <- "NIR/RE"
+setnames(objects_table, oldnames4, newnames4)
+
+oldnames5 <- c("RelBord_bl", "RelBord_tr", "RelBord_un")
+newnames5 <- c("RelBord_bldg", "RelBord_trees", "RelBord_unclass")
+setnames(objects_table, oldnames5, newnames5)
+
+
+
+# remove building and trees classification columns from data table
+objects_table <- objects_table[,-c("Building","Trees")]
+names(objects_table)
+names(objects_table)[2:43]
+
+# also need to remove NAs from unambiguous points
+
+# initialize params as list
+params <- list()
+## General
+params$GT.types <- c("one", "onefivematch")   ## type of GT (to be put in a loop to see both results)
+params$predictor.types <- c("all","spectral","LiDAR","geometric")
+params$predictors.all <- names(objects_table)[2:43]   ## list of all starting predictors 
+params$predictors.spectral <- subset(objects_table, select = c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
+                                                               "Mean_Blue", "Mean_Green", "Mean_Red", "Mean_RE","NDRE", 
+                                                               "nDSM/SD_nDSM", "NDVI", "NDVIRE","NIR/RE","SAVI","sd_red", 
+                                                               "sd_blue", "sd_RE", "sd_NIR"))
+params$predictors.LiDAR <- subset(objects_table, select = c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
+                                                            "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
+                                                            "nDSM/SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev"))
+params$predictors.geometric <- subset(objects_table, select = c("Border_ind", "Compactnes", "Density", "EllipticFi",
+                                                                "Len/Thick", "Len/Width", "RectangFit","RelBord_bldg",
+                                                                "RelBord_trees", "RelBord_unclass", "Roundness", "Thick_pxl"))
+glimpse(params)
 
 # clip artefacts away from unclassified object edge using lidar boundary
 van_lidar_boundary <- readOGR(dsn ="D:\\RandomForests\\Data\\Vancouver\\shp", layer ="Vancouver_nDSM_domain")
