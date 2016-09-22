@@ -133,8 +133,8 @@ objects.raw.short <- objects.raw[,!(names(objects.raw) %in% drops)]
 
 # compare to make sure the names are the same length
 names(objects.raw.short)
-names(objects_table_short)[42]
-names(objects.raw.short)[42]
+tail(names(objects_table_short))
+tail(names(objects.raw.short))
 
 # set names of objects.raw.short to object_table short
 names(objects_table_short) <-  make.names(names(objects_table_short), unique = TRUE)
@@ -142,7 +142,42 @@ names(objects.raw.short) <- names(objects_table_short)
 # note that "/" had been changed to "."
 names(objects.raw.short)
 
-# also need to remove NAs from unambiguous points
+# also need to fix names for points.raw and remove NAs from unambiguous points
+head(points.raw)
+
+# change column names to be meaningful for points and objects
+names (points.raw)
+# old.point.names <- c("VanSubset_", "VanSubset1", "VanSubse_1", "VanSubse_2", "VanSubse_3", 
+#                      "VanSubse_4", "VanSubse_5", "VanSubse_6", "VanSubse_7", "VanSubse_8",
+#                      "VanSubse_9", "VanSubs_10", "VanSubs_11", "VanSubs_12")
+# new.point.names <- c("Point_Number","Onem_Class_1_1st_choice","Onem_Class_1_2nd_choice","Onem_Class_2_1st_choice",
+#        "Onem_Class_2_2nd_choice", "Onem_Class_3_1st_choice", "Onem_Class_3_2nd_choice",
+#        "Fivem_Class1_1st_choice","Fivem_Class1_2nd_choice","Fivem_Class_2_1st_choice",
+#        "Fivem_Class_2_2nd_choice","Fivem_Class_3_1st_choice","Fivem_Class_3_2nd_choice",
+#        "Classifier_notes")
+##couldn't figure out how to make the above code work
+
+names (points.raw) [11:24]
+c <- c("Point_Number","Onem_Class_1_1st_choice","Onem_Class_1_2nd_choice","Onem_Class_2_1st_choice",
+       "Onem_Class_2_2nd_choice", "Onem_Class_3_1st_choice", "Onem_Class_3_2nd_choice",
+       "Fivem_Class1_1st_choice","Fivem_Class1_2nd_choice","Fivem_Class_2_1st_choice",
+       "Fivem_Class_2_2nd_choice","Fivem_Class_3_1st_choice","Fivem_Class_3_2nd_choice",
+       "Classifier_notes")
+names (points.raw) [11:24] <- c
+names(points.raw)
+
+# drop previous spatial join info
+names(points.raw)
+head(points.raw@data)
+drops2 <- c("Join_Count", "TARGET_FID", "JOIN_FID", "CID", "ORIG_FID", "CID_1", "PointID")
+points.raw.short <- points.raw[,!(names(points.raw) %in% drops2)]
+head(points.raw.short)
+
+# remove NA rows
+?filter
+points.short <- filter(points.raw.short@data, Onem_Class_1_1st_choice != "<NA>")
+tail(points.raw.short) #should be 400 or 0-399
+tail(points.short) #should be less
 
 
 # initialize params as list
@@ -153,13 +188,13 @@ params$predictor.types <- c("all","spectral","LiDAR","geometric")
 params$predictors.all <- names(objects_table)[2:43]   ## list of all starting predictors 
 params$predictors.spectral <- subset(objects_table, select = c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
                                                                "Mean_Blue", "Mean_Green", "Mean_Red", "Mean_RE","NDRE", 
-                                                               "nDSM/SD_nDSM", "NDVI", "NDVIRE","NIR/RE","SAVI","sd_red", 
+                                                               "nDSM.SD_nDSM", "NDVI", "NDVIRE","NIR.RE","SAVI","sd_red", 
                                                                "sd_blue", "sd_RE", "sd_NIR"))
 params$predictors.LiDAR <- subset(objects_table, select = c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
                                                             "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
-                                                            "nDSM/SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev"))
+                                                            "nDSM.SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev"))
 params$predictors.geometric <- subset(objects_table, select = c("Border_ind", "Compactnes", "Density", "EllipticFi",
-                                                                "Len/Thick", "Len/Width", "RectangFit","RelBord_bldg",
+                                                                "Len.Thick", "Len.Width", "RectangFit","RelBord_bldg",
                                                                 "RelBord_trees", "RelBord_unclass", "Roundness", "Thick_pxl"))
 glimpse(params)
 
@@ -173,17 +208,8 @@ objects_clip <- objects_backup[van_lidar_boundary,] # this is equivalent to...
 # objects_clip <- stations_backup[!is.na(sel[,1]),]
 plot(objects_clip)
 
-# change column names to be meaningful for points and objects
-names (points.raw) [11:24]
-c <- c("Point_Number","Onem_Class_1_1st_choice","Onem_Class_1_2nd_choice","Onem_Class_2_1st_choice",
-       "Onem_Class_2_2nd_choice", "Onem_Class_3_1st_choice", "Onem_Class_3_2nd_choice",
-       "Fivem_Class1_1st_choice","Fivem_Class1_2nd_choice","Fivem_Class_2_1st_choice",
-       "Fivem_Class_2_2nd_choice","Fivem_Class_3_1st_choice","Fivem_Class_3_2nd_choice",
-       "Classifier_notes")
-names (points.raw) [11:24] <- c
-names(points.raw)
 
-names(objects.raw) #this one is fine
+
 
 # fix any broken names - similar to below but use the other classes
 # change shrub to trees and correct other spelling errors
