@@ -142,21 +142,20 @@ names(objects.raw.short) <- names(objects_table_short)
 # note that "/" had been changed to "."
 names(objects.raw.short)
 
+# clip artefacts away from unclassified object edge using lidar boundary
+van_lidar_boundary <- readOGR(dsn ="D:\\RandomForests\\Data\\Vancouver\\shp", layer ="Vancouver_nDSM_domain")
+plot(van_lidar_boundary)
+# now to clip using sp::over
+objects_backup <- objects.raw.short
+objects_clip <- objects_backup[van_lidar_boundary,] # this is equivalent to...
+# sel <- over(objects_backup, van_lidar_boundary)
+# objects_clip <- stations_backup[!is.na(sel[,1]),]
+plot(objects_clip)
 # also need to fix names for points.raw and remove NAs from unambiguous points
 head(points.raw)
 
 # change column names to be meaningful for points and objects
 names (points.raw)
-# old.point.names <- c("VanSubset_", "VanSubset1", "VanSubse_1", "VanSubse_2", "VanSubse_3", 
-#                      "VanSubse_4", "VanSubse_5", "VanSubse_6", "VanSubse_7", "VanSubse_8",
-#                      "VanSubse_9", "VanSubs_10", "VanSubs_11", "VanSubs_12")
-# new.point.names <- c("Point_Number","Onem_Class_1_1st_choice","Onem_Class_1_2nd_choice","Onem_Class_2_1st_choice",
-#        "Onem_Class_2_2nd_choice", "Onem_Class_3_1st_choice", "Onem_Class_3_2nd_choice",
-#        "Fivem_Class1_1st_choice","Fivem_Class1_2nd_choice","Fivem_Class_2_1st_choice",
-#        "Fivem_Class_2_2nd_choice","Fivem_Class_3_1st_choice","Fivem_Class_3_2nd_choice",
-#        "Classifier_notes")
-##couldn't figure out how to make the above code work
-
 names (points.raw) [11:24]
 c <- c("Point_Number","Onem_Class_1_1st_choice","Onem_Class_1_2nd_choice","Onem_Class_2_1st_choice",
        "Onem_Class_2_2nd_choice", "Onem_Class_3_1st_choice", "Onem_Class_3_2nd_choice",
@@ -178,35 +177,7 @@ points.short <- (points.raw.short[which(indices),])
 dim((points.raw.short)) #should be 400 or 0-399
 dim((points.short)) #should be less #hooray
 
-# initialize params as list
-params <- list()
-## General
-params$GT.types <- c("one", "onefivematch")   ## type of GT (to be put in a loop to see both results)
-params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$predictors.all <- names(objects.raw.short@data)   ## list of all starting predictors 
-params$predictors.spectral <- subset(objects.raw.short@data, select = c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
-                                                               "Mean_Blue", "Mean_Green", "Mean_Red", "Mean_RE","NDRE", 
-                                                               "nDSM.SD_nDSM", "NDVI", "NDVIRE","NIR.RE","SAVI","sd_red", 
-                                                               "sd_blue", "sd_RE", "sd_NIR"))
-params$predictors.LiDAR <- subset(objects.raw.short@data, select = c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
-                                                            "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
-                                                            "nDSM.SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev"))
-params$predictors.geometric <- subset(objects.raw.short@data, select = c("Border_ind", "Compactnes", "Density", "EllipticFi",
-                                                                "Len.Thick", "Len.Width", "RectangFit","RelBord_bldg",
-                                                                "RelBord_trees", "RelBord_unclass", "Roundness", "Thick_pxl"))
-glimpse(params)
-
-# clip artefacts away from unclassified object edge using lidar boundary
-van_lidar_boundary <- readOGR(dsn ="D:\\RandomForests\\Data\\Vancouver\\shp", layer ="Vancouver_nDSM_domain")
-plot(van_lidar_boundary)
-# now to clip using sp::over
-objects_backup <- objects.raw.short
-objects_clip <- objects_backup[van_lidar_boundary,] # this is equivalent to...
-# sel <- over(objects_backup, van_lidar_boundary)
-# objects_clip <- stations_backup[!is.na(sel[,1]),]
-plot(objects_clip)
-
-#### fix any broken class names for the ground truth points 
+#fix any mispelled class names for the ground truth points 
 
 # choose the columns you want to use
 change <- grep("Class_2", names(points.short))
@@ -220,20 +191,10 @@ points.short@data[,7] <- gsub(
   pattern = "Grass_Herb", 
   replacement = "Grass-Herb")
 
-# points.short@data[,7] <- gsub(
-#   x = points.short@data[,7], 
-#   pattern = "Tree_canopy", 
-#   replacement = "Trees")
-
 points.short@data[,7] <- gsub(
   x = points.short@data[,7], 
   pattern = "Tree_Canopy", 
   replacement = "Trees")
-
-# points.short@data[,7] <- gsub(
-#   x = points.short@data[,7], 
-#   pattern = "tree_Canopy", 
-#   replacement = "Trees")
 
 points.short@data[,7] <- gsub(
   x = points.short@data[,7], 
@@ -246,11 +207,6 @@ unique(points.short@data[,7])
 # now for row 13
 unique(points.short@data[,13])
 
-# points.short@data[,7] <- gsub(
-#   x = points.short@data[,7], 
-#   pattern = "Grass_Herb", 
-#   replacement = "Grass-Herb")
-
 points.short@data[,13] <- gsub(
   x = points.short@data[,7], 
   pattern = "tree_canopy", 
@@ -262,6 +218,24 @@ points.short@data[,13] <- gsub(
   replacement = "Trees")
 
 unique(points.short@data[,13])
+
+# initialize params as list
+params <- list()
+## General
+params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
+params$predictor.types <- c("all","spectral","LiDAR","geometric")
+params$predictors.all <- names(objects_clip@data)   ## list of all starting predictors 
+params$predictors.spectral <- subset(objects_clip@data, select = c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
+                                                                        "Mean_Blue", "Mean_Green", "Mean_Red", "Mean_RE","NDRE", 
+                                                                        "nDSM.SD_nDSM", "NDVI", "NDVIRE","NIR.RE","SAVI","sd_red", 
+                                                                        "sd_blue", "sd_RE", "sd_NIR"))
+params$predictors.LiDAR <- subset(objects_clip@data, select = c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
+                                                                     "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
+                                                                     "nDSM.SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev"))
+params$predictors.geometric <- subset(objects_clip@data, select = c("Border_ind", "Compactnes", "Density", "EllipticFi",
+                                                                         "Len.Thick", "Len.Width", "RectangFit","RelBord_bldg",
+                                                                         "RelBord_trees", "RelBord_unclass", "Roundness", "Thick_pxl"))
+glimpse(params)
 
 
 # ## initialize empty factor matrix with appropriate levels to store final class predictions at each round of the Leave-one-out cross-validation loop for each scenario
@@ -280,12 +254,12 @@ RES <- list()  ## initialize list object to store results
 for (gt.type in params$GT.types) {  ## loop over the predictor types
   
   ## filter points to keep only the desired GT level ("one" or "onefivematch")
-  if (gt.type == "one") {
+  if (gt.type == "One_m") {
     points <- subset(points.raw, Shape_Area < 10)
-    class.col <- "VanSubse_2"
-  } else if (gt.type == "onefivematch") {
+    class.col <- "Onem_Class_2_1st_choice"
+  } else if (gt.type == "Five_m") {
     points <- subset(points.raw, VanSubset1 == VanSubse_6)  ## watch out for names (to be changed)!
-    class.col <- "VanSubse_8"
+    class.col <- "Fivem_Class_2_1st_choice"
   }
   
 #### SPATIAL JOIN --------------------------------------------------------------
@@ -295,12 +269,12 @@ for (gt.type in params$GT.types) {  ## loop over the predictor types
   # points <- gBuffer(points, byid=TRUE, width=0)
   # union.res <- union(objects, points)
   
-  ## -------- TO UNCOMMENT
-  ## spatial join the polygons with over()
-  # points.w.values <- over(points, objects.raw)  # [, "ECOZONE_NA"]  ## over() outputs a df with the values of the fields in ecozones.UTMreproj at the locations of lidar
-  # points.merged <- cbind(points@data, points.w.values)  ## stack together GT columns and predictor values
-  # compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
-  ## -------- TO UNCOMMENT
+ 
+  # spatial join the polygons with over()
+  points.w.values <- over(points.short, objects_clip)  
+  points.merged <- cbind(points@data, points.w.values)  ## stack together GT columns and predictor values
+  compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
+
   
   # ---------- TO DEL
   compl.dataset <- points@data %>% filter(!is.na(VanSubset1))  ## remove NAs (points falling outiside of polygons)
