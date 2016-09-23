@@ -168,32 +168,30 @@ names(points.raw)
 
 # drop previous spatial join info
 names(points.raw)
-head(points.raw@data)
 drops2 <- c("Join_Count", "TARGET_FID", "JOIN_FID", "CID", "ORIG_FID", "CID_1", "PointID")
 points.raw.short <- points.raw[,!(names(points.raw) %in% drops2)]
-head(points.raw.short)
+names(points.raw.short)
 
 # remove NA rows
-?filter
-points.short <- filter(points.raw.short@data, Onem_Class_1_1st_choice != "<NA>")
-tail(points.raw.short) #should be 400 or 0-399
-tail(points.short) #should be less
-
+indices <- !is.na(points.raw.short@data$Onem_Class_2_1st_choice)
+points.short <- (points.raw.short[which(indices),])
+dim((points.raw.short)) #should be 400 or 0-399
+dim((points.short)) #should be less #hooray
 
 # initialize params as list
 params <- list()
 ## General
 params$GT.types <- c("one", "onefivematch")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$predictors.all <- names(objects_table)[2:43]   ## list of all starting predictors 
-params$predictors.spectral <- subset(objects_table, select = c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
+params$predictors.all <- names(objects.raw.short@data)   ## list of all starting predictors 
+params$predictors.spectral <- subset(objects.raw.short@data, select = c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
                                                                "Mean_Blue", "Mean_Green", "Mean_Red", "Mean_RE","NDRE", 
                                                                "nDSM.SD_nDSM", "NDVI", "NDVIRE","NIR.RE","SAVI","sd_red", 
                                                                "sd_blue", "sd_RE", "sd_NIR"))
-params$predictors.LiDAR <- subset(objects_table, select = c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
+params$predictors.LiDAR <- subset(objects.raw.short@data, select = c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
                                                             "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
                                                             "nDSM.SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev"))
-params$predictors.geometric <- subset(objects_table, select = c("Border_ind", "Compactnes", "Density", "EllipticFi",
+params$predictors.geometric <- subset(objects.raw.short@data, select = c("Border_ind", "Compactnes", "Density", "EllipticFi",
                                                                 "Len.Thick", "Len.Width", "RectangFit","RelBord_bldg",
                                                                 "RelBord_trees", "RelBord_unclass", "Roundness", "Thick_pxl"))
 glimpse(params)
@@ -202,37 +200,68 @@ glimpse(params)
 van_lidar_boundary <- readOGR(dsn ="D:\\RandomForests\\Data\\Vancouver\\shp", layer ="Vancouver_nDSM_domain")
 plot(van_lidar_boundary)
 # now to clip using sp::over
-objects_backup <- objects.raw
+objects_backup <- objects.raw.short
 objects_clip <- objects_backup[van_lidar_boundary,] # this is equivalent to...
 # sel <- over(objects_backup, van_lidar_boundary)
 # objects_clip <- stations_backup[!is.na(sel[,1]),]
 plot(objects_clip)
 
+#### fix any broken class names for the ground truth points 
 
+# choose the columns you want to use
+change <- grep("Class_2", names(points.short))
+change #use columns 7 and 13
 
+# figure out which unique values you have
+unique(points.short@data[,7])
 
-# fix any broken names - similar to below but use the other classes
-# change shrub to trees and correct other spelling errors
-# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Tree_canopy", replacement = "Trees")
-# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "tree_Canopy", replacement = "Trees")
-# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Tree_Canopy", replacement = "Trees")
-# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Shrub", replacement = "Trees")
-# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "shrub", replacement = "Trees")
-# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Buildings", replacement = "Building")
-# t1_ref_1m_long
-# t1_ref_1m_long$class
-# # remove null values and name column
-# t1_ref_1m_long <- t1_ref_1m_long %>% select(-name) %>% filter(class != "<NA>", class != " ", class != "")
-# t1_ref_1m_long
-# 
-# t1_ref_5m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "Tree_canopy", replacement = "Trees")
-# t1_ref_5m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "tree_Canopy", replacement = "Trees")
-# t1_ref_1m_long$class  <- gsub(x = t1_ref_1m_long$class,pattern = "Tree_Canopy", replacement = "Trees")
-# t1_ref_5m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "Shrub", replacement = "Trees")
-# t1_ref_1m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "shrub", replacement = "Trees")
-# t1_ref_5m_long$class  <- gsub(x = t1_ref_5m_long$class,pattern = "Buildings", replacement = "Building")
-# t1_ref_5m_long
-# t1_ref_5m_long$class
+points.short@data[,7] <- gsub(
+  x = points.short@data[,7], 
+  pattern = "Grass_Herb", 
+  replacement = "Grass-Herb")
+
+# points.short@data[,7] <- gsub(
+#   x = points.short@data[,7], 
+#   pattern = "Tree_canopy", 
+#   replacement = "Trees")
+
+points.short@data[,7] <- gsub(
+  x = points.short@data[,7], 
+  pattern = "Tree_Canopy", 
+  replacement = "Trees")
+
+# points.short@data[,7] <- gsub(
+#   x = points.short@data[,7], 
+#   pattern = "tree_Canopy", 
+#   replacement = "Trees")
+
+points.short@data[,7] <- gsub(
+  x = points.short@data[,7], 
+  pattern = "Shrub", 
+  replacement = "Trees")
+
+# check to make sure there aren't any more unique values you missed
+unique(points.short@data[,7])
+
+# now for row 13
+unique(points.short@data[,13])
+
+# points.short@data[,7] <- gsub(
+#   x = points.short@data[,7], 
+#   pattern = "Grass_Herb", 
+#   replacement = "Grass-Herb")
+
+points.short@data[,13] <- gsub(
+  x = points.short@data[,7], 
+  pattern = "tree_canopy", 
+  replacement = "Trees")
+
+points.short@data[,13] <- gsub(
+  x = points.short@data[,13], 
+  pattern = "Shrub", 
+  replacement = "Trees")
+
+unique(points.short@data[,13])
 
 
 # ## initialize empty factor matrix with appropriate levels to store final class predictions at each round of the Leave-one-out cross-validation loop for each scenario
