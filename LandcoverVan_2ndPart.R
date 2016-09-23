@@ -40,6 +40,25 @@ for (pack in list.of.packages){
 
 #### PARAMETERS ---------------------------------------------
 
+# initialize params as list
+params <- list()
+## General
+params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
+params$predictor.types <- c("all","spectral","LiDAR","geometric")
+## list of all starting predictors 
+params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
+                                "Mean_Blue", "Mean_Green", "Mean_Red","Mean_RE","Mean_NIR","NDRE", 
+                                "nDSM.SD_nDSM", "NDVI", "NDVIRE","NIR.RE","SAVI","sd_red", 
+                                "sd_blue","sd_green", "sd_RE", "sd_NIR")
+params$predictors.LiDAR <- c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
+                             "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
+                             "nDSM.SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev")
+params$predictors.geometric <-  c("Border_ind", "Compactnes", "Density", "EllipticFi",
+                                  "Len.Thick", "Len.Width", "RectangFit","RelBord_bldg",
+                                  "RelBord_trees", "RelBord_unclass", "Roundness")
+
+params$predictors.all <- c(params$predictors.spectral,params$predictors.LiDAR,params$predictors.geometric)                                                                    
+
 
 ## RF
 params$nfold <- 4
@@ -154,6 +173,11 @@ plot(objects_clip)
 # also need to fix names for points.raw and remove NAs from unambiguous points
 head(points.raw)
 
+#make sure the names of objects_clip matches the predictors defined above (except Thick_pxl which will be dropped anyway)
+names(objects_clip) %in% params$predictors.all
+names(objects_clip)[!names(objects_clip) %in% params$predictors.all]
+
+
 # change column names to be meaningful for points and objects
 names (points.raw)
 names (points.raw) [11:24]
@@ -219,23 +243,7 @@ points.short@data[,13] <- gsub(
 
 unique(points.short@data[,13])
 
-# initialize params as list
-params <- list()
-## General
-params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
-params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$predictors.all <- names(objects_clip@data)   ## list of all starting predictors 
-params$predictors.spectral <- subset(objects_clip@data, select = c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
-                                                                        "Mean_Blue", "Mean_Green", "Mean_Red", "Mean_RE","NDRE", 
-                                                                        "nDSM.SD_nDSM", "NDVI", "NDVIRE","NIR.RE","SAVI","sd_red", 
-                                                                        "sd_blue", "sd_RE", "sd_NIR"))
-params$predictors.LiDAR <- subset(objects_clip@data, select = c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
-                                                                     "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
-                                                                     "nDSM.SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev"))
-params$predictors.geometric <- subset(objects_clip@data, select = c("Border_ind", "Compactnes", "Density", "EllipticFi",
-                                                                         "Len.Thick", "Len.Width", "RectangFit","RelBord_bldg",
-                                                                         "RelBord_trees", "RelBord_unclass", "Roundness", "Thick_pxl"))
-glimpse(params)
+
 
 
 # ## initialize empty factor matrix with appropriate levels to store final class predictions at each round of the Leave-one-out cross-validation loop for each scenario
@@ -253,14 +261,14 @@ glimpse(params)
 RES <- list()  ## initialize list object to store results
 for (gt.type in params$GT.types) {  ## loop over the predictor types
   
-  ## filter points to keep only the desired GT level ("one" or "onefivematch")
+  ## filter points to keep only the desired GT level ("One_m" or "Five_m")
   if (gt.type == "One_m") {
-    points <- subset(points.raw, Shape_Area < 10)
+    points <- subset(points.short, Shape_Area < 10)
     class.col <- "Onem_Class_2_1st_choice"
   } else if (gt.type == "Five_m") {
-    points <- subset(points.raw, VanSubset1 == VanSubse_6)  ## watch out for names (to be changed)!
+    points <- subset(points.short, Onem_Class_2_1st_choice == Fivem_Class_2_1st_choice)  ## watch out for names (to be changed)!
     class.col <- "Fivem_Class_2_1st_choice"
-  }
+  }}
   
 #### SPATIAL JOIN --------------------------------------------------------------
   
@@ -270,20 +278,28 @@ for (gt.type in params$GT.types) {  ## loop over the predictor types
   # union.res <- union(objects, points)
   
  
-  # spatial join the polygons with over()
-  points.w.values <- over(points.short, objects_clip)  
-  points.merged <- cbind(points@data, points.w.values)  ## stack together GT columns and predictor values
-  compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
+# spatial join the polygons with over()
+points.w.values <- over(points.short, objects_clip)
+summary(points.w.values)
+class(points.w.values)
+head(points.w.values)
+points.merged <- cbind(points.short@data, points.w.values)  ## stack together GT columns and predictor values
+summary(points.merged)
+class(points.merged)
+compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
+summary(compl.dataset)
 
-  
-  # ---------- TO DEL
-  compl.dataset <- points@data %>% filter(!is.na(VanSubset1))  ## remove NAs (points falling outiside of polygons)
-  # ---------- TO DEL
-  
-  compl.dataset.dt <- as.data.table(compl.dataset)
-  rm(compl.dataset)
-  
-  ## Create n-fold CV indicators
+# remove thick_pxl because it has useless values (consider doing this earlier)
+drops <- "Thick_pxl" # list of col names
+compl.dataset <- compl.dataset[,!(names(compl.dataset) %in% drops)]
+names(compl.dataset)
+
+compl.dataset.dt <- as.data.table(compl.dataset)
+rm(compl.dataset)
+
+names(compl.dataset.dt)
+    
+#### Create n-fold CV indicators------------------------------------
   set.seed(params$seed)
   folds <- createFolds(compl.dataset.dt[[class.col]], k=params$nfold, list=F)  ## [[]] to access column of dt as vector
   
