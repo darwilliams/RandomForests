@@ -177,6 +177,10 @@ head(points.raw)
 names(objects_clip) %in% params$predictors.all
 names(objects_clip)[!names(objects_clip) %in% params$predictors.all]
 
+# remove thick_pxl because it has useless values
+drops <- "Thick_pxl" # list of col names
+objects_clip <- objects_clip@data[,!(names(objects_clip@data) %in% drops)]
+names(objects_clip@data)
 
 # change column names to be meaningful for points and objects
 names (points.raw)
@@ -257,18 +261,18 @@ unique(points.short@data[,13])
 #   )
 # )
 
-
+##### Start of loop, choosing which groun to include ----------------------
 RES <- list()  ## initialize list object to store results
-for (gt.type in params$GT.types) {  ## loop over the predictor types
+for (gt.type in params$GT.types) {  ## loop using one of five m ground truth polys
   
   ## filter points to keep only the desired GT level ("One_m" or "Five_m")
   if (gt.type == "One_m") {
     points <- subset(points.short, Shape_Area < 10)
     class.col <- "Onem_Class_2_1st_choice"
   } else if (gt.type == "Five_m") {
-    points <- subset(points.short, Onem_Class_2_1st_choice == Fivem_Class_2_1st_choice)  ## watch out for names (to be changed)!
+    points <- subset(points.short, Shape_Area > 10 & Onem_Class_2_1st_choice == Fivem_Class_2_1st_choice)  ## watch out for names (to be changed)!
     class.col <- "Fivem_Class_2_1st_choice"
-  }}
+  }
   
 #### SPATIAL JOIN --------------------------------------------------------------
   
@@ -278,27 +282,24 @@ for (gt.type in params$GT.types) {  ## loop over the predictor types
   # union.res <- union(objects, points)
   
  
-# spatial join the polygons with over()
-points.w.values <- over(points.short, objects_clip)
-summary(points.w.values)
-class(points.w.values)
-head(points.w.values)
-points.merged <- cbind(points.short@data, points.w.values)  ## stack together GT columns and predictor values
-summary(points.merged)
-class(points.merged)
-compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
-summary(compl.dataset)
-
-# remove thick_pxl because it has useless values (consider doing this earlier)
-drops <- "Thick_pxl" # list of col names
-compl.dataset <- compl.dataset[,!(names(compl.dataset) %in% drops)]
-names(compl.dataset)
-
-compl.dataset.dt <- as.data.table(compl.dataset)
-rm(compl.dataset)
-
-names(compl.dataset.dt)
-    
+  # spatial join the polygons with over()
+  points.w.values <- over(points, objects_clip)
+  summary(points.w.values)
+  class(points.w.values)
+  head(points.w.values)
+  points.merged <- cbind(points@data, points.w.values)  ## stack together GT columns and predictor values
+  summary(points.merged)
+  class(points.merged)
+  compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
+  summary(compl.dataset)
+  
+  
+  
+  compl.dataset.dt <- as.data.table(compl.dataset)
+  rm(compl.dataset)
+  
+  names(compl.dataset.dt)
+      
 #### Create n-fold CV indicators------------------------------------
   set.seed(params$seed)
   folds <- createFolds(compl.dataset.dt[[class.col]], k=params$nfold, list=F)  ## [[]] to access column of dt as vector
