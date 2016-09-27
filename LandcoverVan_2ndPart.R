@@ -45,7 +45,7 @@ params <- list()
 ## General
 params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$run.ShpRead <- F # set to T if shapefiles have not been read in yet, set to F if they have, so that code can be run from start
+params$run.ShpRead <- T # set to T if shapefiles have not been read in yet, set to F if they have, so that code can be run from start
 ## list of all starting predictors 
 params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
                                 "Mean_Blue", "Mean_Green", "Mean_Red","Mean_RE","Mean_NIR","NDRE", 
@@ -209,7 +209,6 @@ if(params$run.ShpRead){
     # names(objects_clip_short) <- read_file(object_names.file) ####didn't work
     points.raw <- readOGR(dsn=points.path, layer=points.filename) 
   }
-
 
 
 # change column names to be meaningful for points and objects
