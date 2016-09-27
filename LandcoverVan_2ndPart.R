@@ -45,17 +45,20 @@ params <- list()
 ## General
 params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
+params$run.ShpRead <- F # set to T if shapefiles have not been read in yet, set to F if they have, so that code can be run from start
 ## list of all starting predictors 
 params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
                                 "Mean_Blue", "Mean_Green", "Mean_Red","Mean_RE","Mean_NIR","NDRE", 
-                                "nDSM.SD_nDSM", "NDVI", "NDVIRE","NIR.RE","SAVI","sd_red", 
+                                "nDSM.SD_nDSM", "NDVI", "NDVIRE","NIR_div_RE","SAVI","sd_red", 
                                 "sd_blue","sd_green", "sd_RE", "sd_NIR")
 params$predictors.LiDAR <- c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
                              "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
-                             "nDSM.SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev")
+                             "nDSM_div_SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev")
 params$predictors.geometric <-  c("Border_ind", "Compactnes", "Density", "EllipticFi",
-                                  "Len.Thick", "Len.Width", "RectangFit","RelBord_bldg",
+                                  "Len_div_Width", "RectangFit","RelBord_bldg",
                                   "RelBord_trees", "RelBord_unclass", "Roundness")
+
+     
 
 params$predictors.all <- c(params$predictors.spectral,params$predictors.LiDAR,params$predictors.geometric)                                                                    
 
@@ -99,88 +102,115 @@ dir.create(figures.dir)
 # temp.dir <- file.path(data.dir, "temp")  ## directory for temporary files like the segmentation shps (overwritten each time)
 # if (!file.exists(temp.dir)) {dir.create(temp.dir, showWarnings=F, recursive=T)}  ## create it
 
-## read shapefiles
+# set up data directories
 objects.path <- file.path(data.dir, objects.folder, fsep = .Platform$file.sep) 
-points.path <- file.path(data.dir, points.folder, fsep = .Platform$file.sep) 
-objects.raw <- readOGR(dsn=objects.path, layer=objects.filename) 
-points.raw <- readOGR(dsn=points.path, layer=points.filename) 
+points.path <- file.path(data.dir, points.folder, fsep = .Platform$file.sep)
 
-plot(objects.raw)
+if(params$run.ShpRead){
+
+  ## read shapefiles
+  objects.raw <- readOGR(dsn=objects.path, layer=objects.filename) 
+  points.raw <- readOGR(dsn=points.path, layer=points.filename) 
+  
+  # clip artefacts away from unclassified object edge using lidar boundary
+  van_lidar_boundary <- readOGR(dsn ="D:\\RandomForests\\Data\\Vancouver\\shp", layer ="Vancouver_nDSM_domain")
+  plot(van_lidar_boundary)
+  # now to clip using sp::over
+  objects_backup <- objects.raw
+  objects_clip <- objects_backup[van_lidar_boundary,] 
+  
+  #### Changing column names and data wrangling ----------------------------------------
+  
+  # remove buildings, trees and other columns from objects_clip
+  names(objects_clip)
+  drops <- c("Building","Trees","Len_divThi","Thick_pxl")
+  objects_clip_short <- objects_clip[,!(names(objects_clip) %in% drops)]
+  names(objects_clip_short)
+  # use names from objects_table to rename objects.raw attribute table
+  
+  #read in data
+  objects_table <- fread("D:\\RandomForests\\Data\\Vancouver\\shp\\Vancouver_unclassified_final_v9.txt") #read in data table
+  
+  # compare names of objects_table to objects_clip_short
+  names(objects_clip_short)
+  names(objects_table)
+  names(objects_clip_short) %in% names(objects_table)
+  names(objects_clip_short)[!names(objects_clip_short) %in% names(objects_table)]
+  names(objects_table) %in% names(objects_clip_short)
+  names(objects_table)[!names(objects_table) %in% names(objects_clip_short)]
+  
+  # change data table names to make them more readable
+  oldnames1 <- c("GLCMCon_nD", "GLCM_Contr", "GLCMHom_nD", "GLCMHomNIR", "Imag_Brigh", "Len_divThi", "Len_divWid")
+  newnames1 <- c("GLCMCon_nDSM", "GLCMCon_NIR", "GLCMHom_nDSM", "GLCMHomNIR", "Imag_Brightness", "Len_div_Thick", "Len_div_Width")
+  setnames(objects_table, oldnames1, newnames1)
+  
+  oldnames2 <- "Mean_Red_E"
+  newnames2 <- "Mean_RE"
+  setnames(objects_table, oldnames2, newnames2)
+  
+  oldnames3 <- "nDSM_divDS"
+  newnames3 <- "nDSM_div_SD_nDSM"
+  setnames(objects_table, oldnames3, newnames3)
+  
+  oldnames4 <- "NIR_div_RE"
+  newnames4 <- "NIR_div_RE"
+  setnames(objects_table, oldnames4, newnames4)
+  
+  oldnames5 <- c("RelBord_bl", "RelBord_tr", "RelBord_un")
+  newnames5 <- c("RelBord_bldg", "RelBord_trees", "RelBord_unclass")
+  setnames(objects_table, oldnames5, newnames5)
+  
+  names(objects_table)
+  
+  # remove FID, building and trees, and two useless geom params columns from data table
+  objects_table_short <- objects_table[,c("FID","Building","Trees","Len_div_Thick","Thick_pxl"):=NULL]
+ 
+  # compare to make sure the names are the same length
+  names(objects_clip_short) %in% names(objects_table_short)
+  names(objects_clip_short)[!names(objects_clip_short) %in% names(objects_table_short)]
+  names(objects_table_short) %in% names(objects_clip_short)
+  names(objects_table_short)[!names(objects_table_short) %in% names(objects_clip_short)]
+  
+  names(objects_clip_short)
+  names(objects_table_short)
+  head(names(objects_clip_short))
+  head(names(objects_table_short))
+  tail(names(objects_clip_short))
+  tail(names(objects_table_short))
+  length(names(objects_clip_short))
+  length(names(objects_table_short))
+  
+  # set names of objects_clip_short to object_table short
+  names(objects_table_short) <-  make.names(names(objects_table_short), unique = TRUE)
+  names(objects_clip_short) <- names(objects_table_short)
+  # note that "/" had been changed to "."
+  names(objects_clip_short)
+  
+  #make sure the names of objects_clip matches the predictors defined above (except Thick_pxl and Len.Thick which should be dropped anyway)
+  names(objects_clip_short) %in% params$predictors.all
+  names(objects_clip_short)[!names(objects_clip_short) %in% params$predictors.all]
+  
+  #save object names to a file that can be loaded outside loop
+  object_names <- names(objects_clip_short)
+  write.csv(x = object_names,file = paste0(objects.path,"/object_names.csv"),row.names = FALSE,col.names = FALSE)
+#   can't get file save/read to work
+#   object_names.file = file.path(objects.path, 'object_names.Rdata', fsep = .Platform$file.sep) 
+#   save(object_names, file = object_names.file)
+  
+  writeOGR(objects_clip, objects.path, "unclass_objects_clip", driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile for the left-out fire
+  
+  } else {
+    objects_clip_short <- readOGR(dsn =objects.path, layer ="unclass_objects_clip")
+    new_names <- read_csv(file = paste0(objects.path,"/object_names.csv")) #col_names = c("row","names")
+    new_names <- (new_names$x)
+    names(objects_clip_short)
+    names(objects_clip_short) <- new_names
+    names(objects_clip_short) #should be the right names!
+    # names(objects_clip_short) <- read_file(object_names.file) ####didn't work
+    points.raw <- readOGR(dsn=points.path, layer=points.filename) 
+  }
 
 
-#### Changing column names and data wrangling ----------------------------------------
-
-# use names from objects_table to rename objects.raw attribute table
-objects_table <- fread("D:\\RandomForests\\Data\\Vancouver\\shp\\Vancouver_unclassified_final_v9.txt") #read in data table
-
-# compare names of objects_table to objects.raw@data
-names(objects.raw@data)
-names(objects_table)
-
-# change data table names to make them more readable
-oldnames1 <- c("GLCMCon_nD", "GLCM_Contr", "GLCMHom_nD", "GLCMHomNIR", "Imag_Brigh", "Len_divThi", "Len_divWid")
-newnames1 <- c("GLCMCon_nDSM", "GLCMCon_NIR", "GLCMHom_nDSM", "GLCMHomNIR", "Imag_Brightness", "Len/Thick", "Len/Width")
-setnames(objects_table, oldnames1, newnames1)
-
-oldnames2 <- "Mean_Red_E"
-newnames2 <- "Mean_RE"
-setnames(objects_table, oldnames2, newnames2)
-
-oldnames3 <- "nDSM_divDS"
-newnames3 <- "nDSM/SD_nDSM"
-setnames(objects_table, oldnames3, newnames3)
-
-oldnames4 <- "NIR_div_RE"
-newnames4 <- "NIR/RE"
-setnames(objects_table, oldnames4, newnames4)
-
-oldnames5 <- c("RelBord_bl", "RelBord_tr", "RelBord_un")
-newnames5 <- c("RelBord_bldg", "RelBord_trees", "RelBord_unclass")
-setnames(objects_table, oldnames5, newnames5)
-
-names(objects.raw@data)
-names(objects_table)
-
-# remove FID, building and trees classification columns from data table
-objects_table_short <- objects_table[,c("FID","Building","Trees"):=NULL]
-names(objects_table_short)
-names(objects_table)
-
-# remove buildings and trees from objects.raw
-drops <- c("Building","Trees")
-objects.raw.short <- objects.raw[,!(names(objects.raw) %in% drops)]
-
-# compare to make sure the names are the same length
-names(objects.raw.short)
-tail(names(objects_table_short))
-tail(names(objects.raw.short))
-
-# set names of objects.raw.short to object_table short
-names(objects_table_short) <-  make.names(names(objects_table_short), unique = TRUE)
-names(objects.raw.short) <- names(objects_table_short)
-# note that "/" had been changed to "."
-names(objects.raw.short)
-
-# clip artefacts away from unclassified object edge using lidar boundary
-van_lidar_boundary <- readOGR(dsn ="D:\\RandomForests\\Data\\Vancouver\\shp", layer ="Vancouver_nDSM_domain")
-plot(van_lidar_boundary)
-# now to clip using sp::over
-objects_backup <- objects.raw.short
-objects_clip <- objects_backup[van_lidar_boundary,] # this is equivalent to...
-# sel <- over(objects_backup, van_lidar_boundary)
-# objects_clip <- stations_backup[!is.na(sel[,1]),]
-plot(objects_clip)
-# also need to fix names for points.raw and remove NAs from unambiguous points
-head(points.raw)
-
-#make sure the names of objects_clip matches the predictors defined above (except Thick_pxl which will be dropped anyway)
-names(objects_clip) %in% params$predictors.all
-names(objects_clip)[!names(objects_clip) %in% params$predictors.all]
-
-# remove thick_pxl because it has useless values
-drops <- "Thick_pxl" # list of col names
-objects_clip <- objects_clip@data[,!(names(objects_clip@data) %in% drops)]
-names(objects_clip@data)
 
 # change column names to be meaningful for points and objects
 names (points.raw)
@@ -195,7 +225,7 @@ names(points.raw)
 
 # drop previous spatial join info
 names(points.raw)
-drops2 <- c("Join_Count", "TARGET_FID", "JOIN_FID", "CID", "ORIG_FID", "CID_1", "PointID")
+drops2 <- c("Shape_Leng","distance","Join_Count", "TARGET_FID", "JOIN_FID", "CID", "ORIG_FID", "CID_1", "PointID")
 points.raw.short <- points.raw[,!(names(points.raw) %in% drops2)]
 names(points.raw.short)
 
@@ -205,52 +235,56 @@ points.short <- (points.raw.short[which(indices),])
 dim((points.raw.short)) #should be 400 or 0-399
 dim((points.short)) #should be less #hooray
 
+
 #fix any mispelled class names for the ground truth points 
 
 # choose the columns you want to use
 change <- grep("Class_2", names(points.short))
-change #use columns 7 and 13
+change #use columns 5 and 11
 
 # figure out which unique values you have
-unique(points.short@data[,7])
+unique(points.short@data[,5])
 
-points.short@data[,7] <- gsub(
-  x = points.short@data[,7], 
+points.short@data[,5] <- gsub(
+  x = points.short@data[,5], 
   pattern = "Grass_Herb", 
   replacement = "Grass-Herb")
 
-points.short@data[,7] <- gsub(
-  x = points.short@data[,7], 
+points.short@data[,5] <- gsub(
+  x = points.short@data[,5], 
   pattern = "Tree_Canopy", 
   replacement = "Trees")
 
-points.short@data[,7] <- gsub(
-  x = points.short@data[,7], 
+points.short@data[,5] <- gsub(
+  x = points.short@data[,5], 
   pattern = "Shrub", 
   replacement = "Trees")
 
 # check to make sure there aren't any more unique values you missed
-unique(points.short@data[,7])
+unique(points.short@data[,5])
 
 # now for row 13
-unique(points.short@data[,13])
+unique(points.short@data[,11])
 
-points.short@data[,13] <- gsub(
-  x = points.short@data[,7], 
+points.short@data[,11] <- gsub(
+  x = points.short@data[,11], 
   pattern = "tree_canopy", 
   replacement = "Trees")
 
-points.short@data[,13] <- gsub(
-  x = points.short@data[,13], 
+points.short@data[,11] <- gsub(
+  x = points.short@data[,11], 
+  pattern = "tree_Canopy", 
+  replacement = "Trees")
+
+points.short@data[,11] <- gsub(
+  x = points.short@data[,11], 
   pattern = "Shrub", 
   replacement = "Trees")
 
-unique(points.short@data[,13])
+unique(points.short@data[,11])
 
-
-
-
-# ## initialize empty factor matrix with appropriate levels to store final class predictions at each round of the Leave-one-out cross-validation loop for each scenario
+# the commented-out code below looks to already be in the RF loop
+## initialize empty factor matrix with appropriate levels to store final class predictions at each round of the Leave-one-out cross-validation loop for each scenario
 # Y.predicted <- data.table(
 #   replicate(
 #     length(params$GT.types)*length(params$predictor.types),
@@ -261,7 +295,7 @@ unique(points.short@data[,13])
 #   )
 # )
 
-##### Start of loop, choosing which groun to include ----------------------
+##### START OF THE LOOP, choosing which group to include ----------------------
 RES <- list()  ## initialize list object to store results
 for (gt.type in params$GT.types) {  ## loop using one of five m ground truth polys
   
@@ -284,22 +318,16 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
  
   # spatial join the polygons with over()
   points.w.values <- over(points, objects_clip)
-  summary(points.w.values)
-  class(points.w.values)
-  head(points.w.values)
   points.merged <- cbind(points@data, points.w.values)  ## stack together GT columns and predictor values
-  summary(points.merged)
-  class(points.merged)
   compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
-  summary(compl.dataset)
-  
-  
-  
   compl.dataset.dt <- as.data.table(compl.dataset)
   rm(compl.dataset)
   
-  names(compl.dataset.dt)
-      
+  # set class label column as factor
+#   cmd <- sprintf("compl.dataset.dt[, %s:=as.factor(%s)] ", class.col, class.col)
+#   eval(parse(text=cmd))
+  compl.dataset.dt[, (class.col) := lapply(.SD, factor), .SDcols=class.col]
+  
 #### Create n-fold CV indicators------------------------------------
   set.seed(params$seed)
   folds <- createFolds(compl.dataset.dt[[class.col]], k=params$nfold, list=F)  ## [[]] to access column of dt as vector
@@ -336,7 +364,7 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
       
       ## Training on kept-in segments
       set.seed(params$seed)  ## set seed to always have same results
-      RF <- randomForest(x=compl.dataset.dt[segments.in, predictors, with=FALSE], y=droplevels(compl.dataset.dt[[class.col]][segments.in]),   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
+      RF <- randomForest(x=compl.dataset.dt[segments.in, predictors, with=FALSE], y=compl.dataset.dt[[class.col]][segments.in],   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
                          ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
       
       ## Prediction on left-out segments
