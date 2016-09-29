@@ -421,6 +421,10 @@ compl.dataset.df <- as.data.frame(compl.dataset.dt)
 RF_comp <- randomForest(x=compl.dataset.df[, predictors], y=as.factor(compl.dataset.df[[class.col]]),   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
                    ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
 
+
+#this is what testing out a github push pull system looks like
+
+
 ## Prediction on left-out segments
 # Y.predicted.segments.out <- predict(RF, compl.dataset.dt[segments.out, predictors, with=FALSE], type="response", predict.all=F, nodes=F)
 
