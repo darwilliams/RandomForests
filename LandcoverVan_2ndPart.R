@@ -411,45 +411,6 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
 RES.file = file.path(results.dir, 'RESULTS_Van.Rdata', fsep = .Platform$file.sep) 
 save(RES, file = RES.file)
 
-## !!!!!!!!!! TO DELETE: FROM HERE !!!!!!!!!!
-#### PREDICT ON FULL MAP ------------------------------------------------
-
-# XXXXXXXXXXXXXXXXX
-# paste RF on FULL dataset
-# XXXXXXXXXXXXXXXXX
-# 
-
-compl.dataset.df <- as.data.frame(compl.dataset.dt)
-RF_comp <- randomForest(x=compl.dataset.df[, predictors], y=as.factor(compl.dataset.df[[class.col]]),   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
-                   ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
-
-
-#this is what testing out a github push pull system looks like
-
-#another test line to see how things conflict
-
-## Prediction on left-out segments
-# Y.predicted.segments.out <- predict(RF, compl.dataset.dt[segments.out, predictors, with=FALSE], type="response", predict.all=F, nodes=F)
-
-# ## Save Segments
-# 
-# ## Save shp with predicted class
-# ## build a dt with the predicted class for each segment (Y.predicted.segments.out) and the associated segment ID (single.scale.obj.df[segments.out, "segID"])
-# y.pred.segID.dt <- data.table(segID=single.scale.obj.dt[segments.out, segID], ypred=Y.predicted.segments.out)
-# 
-# ## assign the predicted class to the "data" df of the segments shp by merging by segment ID ("dn" or "segID"), all.x=T is used to keep the segments for which there is no prediction (outside of fire)
-# segments@data <- merge(segments@data, y.pred.segID.dt, by.x="dn", by.y="segID", all.x=T)  
-# segments@data$ypred[is.na(segments@data$ypred)] <- params$mort.class.labels[1]    ## if NA are assigned to polygons outside of fire, assign the lowest mortality class instead
-# writeOGR(segments, results.dir, sprintf("%s_pred_map_%s", fire.out, best.colname), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile for the left-out fire
-# 
-# ## Join the predicted labels for the segments to the corresponding segID in the complete vector of all images
-# setkey(y.pred.segID.dt, segID) ## set key as the segment IDs column
-# segID.allpixels.out.dt <- data.table(segID=allpixels.out.dt[,segID], key = "segID") #
-# Y.predicted.object.single[idx.pix.out] <- segID.allpixels.out.dt[y.pred.segID.dt, ypred]  ## join to data.table based on a common key with this command allpixels.out.segID.dt[y.pred.segID.dt], then select only ypred as a column
-## !!!!!!!!!! TO DELETE: TO HERE !!!!!!!!!!
-
-
-
 #### PRINT LOGS ---------------------------------------------------------
 
 ## clock global time
