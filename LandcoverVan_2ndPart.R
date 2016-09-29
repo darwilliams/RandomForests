@@ -53,7 +53,7 @@ params$run.ShpRead <- F # set to T if shapefiles have not been read in yet, set 
 ## list of all starting predictors 
 params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
                                 "Mean_Blue", "Mean_Green", "Mean_Red","Mean_RE","Mean_NIR","NDRE", 
-                                "nDSM_div_SD_nDSM", "NDVI", "NDVIRE","NIR_div_RE","SAVI","sd_red", 
+                                "NDVI", "NDVIRE","NIR_div_RE","SAVI","sd_red", 
                                 "sd_blue","sd_green", "sd_RE", "sd_NIR")
 params$predictors.LiDAR <- c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
                              "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
@@ -73,6 +73,7 @@ params$ntree <- 100     ## RF nr of trees
 params$mtry <- 'sqrt_nr_var'  ## how to set RF mtry: 'sqrt_nr_var' or 'nr_var_div_3'
 params$nodesize <- 1   ## RF nodesize: default for classification is 1
 params$plot.importance <- F  ## whether to plot RF variable importance
+params$prediction.maps <- T
 
 base.dir <- 'D:/RandomForests'    ## base working directory
 
@@ -324,9 +325,15 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
   compl.dataset.dt <- as.data.table(compl.dataset)
   rm(compl.dataset)
   
+  #delete any na, nan or inf values from predictor columns
+  if (sum((compl.dataset.dt[, colSums(sapply(compl.dataset.dt[,predictors, with = FALSE], is.infinite))])) >= 1){
+    compl.dataset.dt <- do.call(data.table,lapply(compl.dataset.dt[,predictors, with = FALSE], 
+                                                  function(x) replace(x, is.infinite(x),NA)))}
+    
+  if (sum(is.na(compl.dataset.dt[,predictors, with = FALSE])) >= 1){
+    compl.dataset.dt <- do.call(data.table,lapply(compl.dataset.dt[,predictors, with = FALSE], 
+                                                  function(x) replace(x, is.na(x),0)))}
   # set class label column as factor
-#   cmd <- sprintf("compl.dataset.dt[, %s:=as.factor(%s)] ", class.col, class.col)
-#   eval(parse(text=cmd))
   compl.dataset.dt[, (class.col) := lapply(.SD, factor), .SDcols=class.col]
   
 #### Create n-fold CV indicators------------------------------------
@@ -376,7 +383,7 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
       
     }  ## end of n-fold loop
     
-#### ASSESSMENT -----------------------------------------------------------
+#### ASSESSMENT ----------------------------------------------------------- #will this work here?
     
     ## overall assessment
     metrics <- classif.metrics(Y.predicted, compl.dataset.dt[[class.col]])
@@ -385,31 +392,48 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
     cmd <- sprintf("RES$%s$%s <- metrics", gt.type, pred.type)
     eval(parse(text=cmd))
 	
+    
+    RES.file = file.path(results.dir, 'RESULTS_Van.Rdata', fsep = .Platform$file.sep) 
+    save(RES, file = RES.file)    
+    
 #### PREDICTION ON FULL MAP ------------------------------------------------
-    
-    if (params$prediction.maps) {
-      
-      RF <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y=compl.dataset.dt[[class.col]],   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
-                         ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
-      
-      Y.predicted.map <- predict(RF, segments_clip@data[, predictors], type="response", predict.all=F, nodes=F)
-      ## add foreach() to run in parallel over tiles
-      
-      params$cols.to.keep <- c("ID", "bla", "blabla")
-      objects.map <- objects_clip
-      objects.map@data[, !colnames(objects.map@data) %in% params$cols.to.keep] <- list(NULL)
-      objects.map@data$pred_class <- Y.predicted.map
-      
-      writeOGR(segments.map, results.dir, sprintf("Prediction_map_%s_%s", gt.type, pred.type), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
-    
-    }  ## end if params$prediction.maps
-    
-  } ## end of loop over predictor types
-   
-}  ## end of loop over GT types
 
-RES.file = file.path(results.dir, 'RESULTS_Van.Rdata', fsep = .Platform$file.sep) 
-save(RES, file = RES.file)
+
+if (params$prediction.maps) {
+  
+  RF_complete <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y=compl.dataset.dt[[class.col]],   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
+                              ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
+  
+  # remove na/nan/inf from objects_clip_short@data[, predictors]
+  #delete any na, nan or inf values from predictor columns
+  obj.dt <- as.data.table(objects_clip_short@data[, predictors])
+  
+  if ( any(obj.dt[, colSums(sapply(.SD, is.infinite))]!=0) ) {
+    objects_clip_short@data <- do.call( data.frame,lapply(objects_clip_short@data[, predictors], 
+                                                  function(x) replace(x, is.infinite(x), 0)) )
+  }
+  
+  if (sum(is.na(objects_clip_short@data[, predictors])) >= 1){
+    compl.dataset.dt <- do.call( data.table,lapply(objects_clip_short@data[, predictors], 
+                                                  function(x) replace(x, is.na(x),0)) )
+  }
+  
+  
+  Y.predicted.map <- predict(RF_complete, objects_clip_short@data[, predictors], type="response", predict.all=F, nodes=F)
+  ## add foreach() to run in parallel over tiles
+  
+  params$cols.to.keep <- params$predictors.all
+  objects.map <- objects_clip_short
+  objects.map@data[, !colnames(objects.map@data) %in% params$cols.to.keep] <- list(NULL)
+  objects.map@data$pred_class <- Y.predicted.map
+  
+  writeOGR(objects.map, results.dir, sprintf("Prediction_map_unclass_%s_%s", gt.type, pred.type), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
+  
+}  ## end if params$predictors.all
+
+} ## end of loop over predictor types
+
+}  ## end of loop over GT types
 
 #### PRINT LOGS ---------------------------------------------------------
 
@@ -417,7 +441,5 @@ save(RES, file = RES.file)
 toc <- proc.time()-tic[3]
 end.message <- sprintf("Total elapsed time: %s, finished running on %s", seconds_to_period(toc[3]), Sys.time())
 print(end.message)
-
-
 
 
