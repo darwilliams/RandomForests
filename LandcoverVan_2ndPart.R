@@ -4,7 +4,9 @@ rm(list=ls())  ## remove all variables
 start.message <- sprintf("Vancouver landuse/landcover classification, started running on %s", Sys.time())
 print(start.message)
 
-setwd("D:\\RandomForests")
+## !!! GIONA !!!
+# setwd("D:\\RandomForests")
+
 
 #### LOAD PACKAGES ----------------------------------------------------------
 
@@ -380,6 +382,25 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
     ## store results by GT type and by predictors type in RES list
     cmd <- sprintf("RES$%s$%s <- metrics", gt.type, pred.type)
     eval(parse(text=cmd))
+	
+#### PREDICTION ON FULL MAP ------------------------------------------------
+    
+    if (params$prediction.maps) {
+      
+      RF <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y=compl.dataset.dt[[class.col]],   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
+                         ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
+      
+      Y.predicted.map <- predict(RF, segments_clip@data[, predictors], type="response", predict.all=F, nodes=F)
+      ## add foreach() to run in parallel over tiles
+      
+      params$cols.to.keep <- c("ID", "bla", "blabla")
+      objects.map <- objects_clip
+      objects.map@data[, !colnames(objects.map@data) %in% params$cols.to.keep] <- list(NULL)
+      objects.map@data$pred_class <- Y.predicted.map
+      
+      writeOGR(segments.map, results.dir, sprintf("Prediction_map_%s_%s", gt.type, pred.type), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
+    
+    }  ## end if params$prediction.maps
     
   } ## end of loop over predictor types
    
@@ -388,7 +409,7 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
 RES.file = file.path(results.dir, 'RESULTS_Van.Rdata', fsep = .Platform$file.sep) 
 save(RES, file = RES.file)
 
-
+## !!!!!!!!!! TO DELETE: FROM HERE !!!!!!!!!!
 #### PREDICT ON FULL MAP ------------------------------------------------
 
 # XXXXXXXXXXXXXXXXX
@@ -401,8 +422,6 @@ RF <- randomForest(x=compl.dataset.df[, predictors], y=as.factor(compl.dataset.d
 
 ## Prediction on left-out segments
 Y.predicted.segments.out <- predict(RF, compl.dataset.dt[segments.out, predictors, with=FALSE], type="response", predict.all=F, nodes=F)
-
-
 
 # ## Save Segments
 # 
@@ -419,6 +438,8 @@ Y.predicted.segments.out <- predict(RF, compl.dataset.dt[segments.out, predictor
 # setkey(y.pred.segID.dt, segID) ## set key as the segment IDs column
 # segID.allpixels.out.dt <- data.table(segID=allpixels.out.dt[,segID], key = "segID") #
 # Y.predicted.object.single[idx.pix.out] <- segID.allpixels.out.dt[y.pred.segID.dt, ypred]  ## join to data.table based on a common key with this command allpixels.out.segID.dt[y.pred.segID.dt], then select only ypred as a column
+## !!!!!!!!!! TO DELETE: TO HERE !!!!!!!!!!
+
 
 
 #### PRINT LOGS ---------------------------------------------------------
