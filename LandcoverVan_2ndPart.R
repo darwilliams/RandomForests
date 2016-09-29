@@ -424,6 +424,7 @@ RF_comp <- randomForest(x=compl.dataset.df[, predictors], y=as.factor(compl.data
 
 #this is what testing out a github push pull system looks like
 
+#another test line to see how things conflict
 
 ## Prediction on left-out segments
 # Y.predicted.segments.out <- predict(RF, compl.dataset.dt[segments.out, predictors, with=FALSE], type="response", predict.all=F, nodes=F)
