@@ -45,11 +45,11 @@ params <- list()
 ## General
 params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$run.ShpRead <- T # set to T if shapefiles have not been read in yet, set to F if they have, so that code can be run from start
+params$run.ShpRead <- F # set to T if shapefiles have not been read in yet, set to F if they have, so that code can be run from start
 ## list of all starting predictors 
 params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
                                 "Mean_Blue", "Mean_Green", "Mean_Red","Mean_RE","Mean_NIR","NDRE", 
-                                "nDSM.SD_nDSM", "NDVI", "NDVIRE","NIR_div_RE","SAVI","sd_red", 
+                                "nDSM_div_SD_nDSM", "NDVI", "NDVIRE","NIR_div_RE","SAVI","sd_red", 
                                 "sd_blue","sd_green", "sd_RE", "sd_NIR")
 params$predictors.LiDAR <- c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
                              "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
@@ -57,8 +57,6 @@ params$predictors.LiDAR <- c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM",
 params$predictors.geometric <-  c("Border_ind", "Compactnes", "Density", "EllipticFi",
                                   "Len_div_Width", "RectangFit","RelBord_bldg",
                                   "RelBord_trees", "RelBord_unclass", "Roundness")
-
-     
 
 params$predictors.all <- c(params$predictors.spectral,params$predictors.LiDAR,params$predictors.geometric)                                                                    
 
@@ -197,7 +195,7 @@ if(params$run.ShpRead){
 #   object_names.file = file.path(objects.path, 'object_names.Rdata', fsep = .Platform$file.sep) 
 #   save(object_names, file = object_names.file)
   
-  writeOGR(objects_clip, objects.path, "unclass_objects_clip", driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile for the left-out fire
+  writeOGR(objects_clip_short, objects.path, "unclass_objects_clip", driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile for the left-out fire
   
   } else {
     objects_clip_short <- readOGR(dsn =objects.path, layer ="unclass_objects_clip")
@@ -316,7 +314,7 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
   
  
   # spatial join the polygons with over()
-  points.w.values <- over(points, objects_clip)
+  points.w.values <- over(points, objects_clip_short)
   points.merged <- cbind(points@data, points.w.values)  ## stack together GT columns and predictor values
   compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
   compl.dataset.dt <- as.data.table(compl.dataset)
@@ -387,7 +385,7 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
    
 }  ## end of loop over GT types
 
-RES.file = file.path(results.dir, 'RESULTS.Rdata', fsep = .Platform$file.sep) 
+RES.file = file.path(results.dir, 'RESULTS_Van.Rdata', fsep = .Platform$file.sep) 
 save(RES, file = RES.file)
 
 
@@ -397,6 +395,15 @@ save(RES, file = RES.file)
 # paste RF on FULL dataset
 # XXXXXXXXXXXXXXXXX
 # 
+compl.dataset.df <- as.data.frame(compl.dataset.dt)
+RF <- randomForest(x=compl.dataset.df[, predictors], y=as.factor(compl.dataset.df[[class.col]]),   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
+                   ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
+
+## Prediction on left-out segments
+Y.predicted.segments.out <- predict(RF, compl.dataset.dt[segments.out, predictors, with=FALSE], type="response", predict.all=F, nodes=F)
+
+
+
 # ## Save Segments
 # 
 # ## Save shp with predicted class
