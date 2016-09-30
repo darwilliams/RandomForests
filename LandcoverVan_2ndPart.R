@@ -49,7 +49,7 @@ params <- list()
 ## General
 params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$run.ShpRead <- F # set to T if shapefiles have not been read in yet, set to F if they have, so that code can be run from start
+params$run.ShpRead <- T # set to T if shapefiles have not been read in yet, set to F if they have, so that code can be run from start
 ## list of all starting predictors 
 params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
                                 "Mean_Blue", "Mean_Green", "Mean_Red","Mean_RE","Mean_NIR","NDRE", 
@@ -237,7 +237,6 @@ points.short <- (points.raw.short[which(indices),])
 dim((points.raw.short)) #should be 400 or 0-399
 dim((points.short)) #should be less #hooray
 
-
 #fix any mispelled class names for the ground truth points 
 
 # choose the columns you want to use
@@ -283,6 +282,11 @@ points.short@data[,11] <- gsub(
   pattern = "Shrub", 
   replacement = "Trees")
 
+unique(points.short@data[,11])
+
+#remove building or tree points
+points.short@data <- filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
+unique(points.short@data[,5])
 unique(points.short@data[,11])
 
 # the commented-out code below looks to already be in the RF loop
