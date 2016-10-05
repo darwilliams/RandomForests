@@ -57,7 +57,7 @@ params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag
                                 "sd_blue","sd_green", "sd_RE", "sd_NIR")
 params$predictors.LiDAR <- c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
                              "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
-                             "nDSM_div_SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev") 
+                             "sd_ndsm", "sd_slope", "sd_zdev") 
 params$predictors.geometric <-  c("Border_ind", "Compactnes", "Density", "EllipticFi",
                                   "Len_div_Width", "RectangFit","RelBord_bldg",
                                   "RelBord_trees", "RelBord_unclass", "Roundness")
@@ -296,34 +296,35 @@ points.short@data[,11] <- gsub(
 unique(points.short@data[,11])
 
 ### checking to make sure points numbers are respected when filtering
-a <- points.short@data %>% 
-  select(Point_Number,Shape_Area,Onem_Class_2_1st_choice)
-a
-
-b <- points.short@data %>% 
-  select(Point_Number,Shape_Area,Onem_Class_2_1st_choice) %>% 
-  filter(!(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
-b  
-
-length(a[,2])
-length(b[,2])
-
-a[,1] %in% b[,1]
-a[,2] %in% b[,2]
-
-head(a,15)
-head(b)
-tail(a,15)
-tail(b)
-
-filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
+# a <- points.short@data %>% 
+#   select(Point_Number,Shape_Area,Onem_Class_2_1st_choice)
+# a
+# 
+# b <- points.short@data %>% 
+#   select(Point_Number,Shape_Area,Onem_Class_2_1st_choice) %>% 
+#   filter(!(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
+# b  
+# 
+# length(a[,2])
+# length(b[,2])
+# 
+# a[,1] %in% b[,1]
+# a[,2] %in% b[,2]
+# 
+# head(a,15)
+# head(b)
+# tail(a,15)
+# tail(b)
+# 
+# filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
 
 #remove building or tree points
-points.short@data <- filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
+# points.short@data <- filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
 unique(points.short@data[,5])
 unique(points.short@data[,11])
 
-
+points.short@data %>% 
+  select(Point_Number,Onem_Class_2_1st_choice)
 
 ##### START OF THE LOOP, choosing which group to include ----------------------
 RES <- list()  ## initialize list object to store results
@@ -358,6 +359,9 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   rm(compl.dataset)
   compl.dataset.dt
   
+  
+  compl.dataset.dt %>% 
+    select(Point_Number,Onem_Class_2_1st_choice)
   #delete any inf and na values from predictor columns
   
   if (sum(is.infinite(compl.dataset.dt$CoefVar_nD)) >= 1){
@@ -365,7 +369,9 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
                                            is.infinite(compl.dataset.dt$CoefVar_nD), 0)}
   
   if (sum(is.infinite(compl.dataset.dt$nDSM_div_SD_nDSM)) >= 1){
-    compl.dataset.dt <- compl.dataset.dt[!is.infinite(compl.dataset.dt$nDSM_div_SD_nDSM)]
+    compl.dataset.dt <- compl.dataset.dt[!is.infinite(compl.dataset.dt$nDSM_div_SD_nDSM)]}
+  
+  
     
 #   if (sum(is.na(compl.dataset.dt)) >= 1){
 #     compl.dataset.dt <- do.call(data.table,lapply(compl.dataset.dt, 
@@ -445,7 +451,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
     eval(parse(text=cmd))
 	
     
-    RES.file = file.path(results.dir, 'RESULTS_Van_2.Rdata', fsep = .Platform$file.sep) 
+    RES.file = file.path(results.dir, 'RESULTS_Van_2_BTin.Rdata', fsep = .Platform$file.sep) 
     save(RES, file = RES.file)    
     
 #### PREDICTION ON FULL MAP ------------------------------------------------
@@ -456,16 +462,19 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       RF_complete <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y=compl.dataset.dt[[class.col]],   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
                                   ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
       
-      # remove na/nan/inf from objects_clip_short@data[, predictors]
-      #delete any na, nan or inf values from predictor columns
+      # remove inf from objects_clip_short@data[, predictors]
+      #delete nDSM/sd_Ndsm if it contains more than one inf value b/c infs cannot be set to 0
       
-      if (sum(is.infinite(compl.dataset.dt$CoefVar_nD)) >= 1){
-        compl.dataset.dt$CoefVar_nD <- replace(compl.dataset.dt$CoefVar_nD, 
-                                               is.infinite(compl.dataset.dt$CoefVar_nD), 0)}
+      if (sum(is.infinite(objects_clip_short@data$CoefVar_nD)) >= 1){
+        objects_clip_short@data$CoefVar_nD <- replace(objects_clip_short@data$CoefVar_nD, 
+                                               is.infinite(objects_clip_short@data$CoefVar_nD), 0)}
       
-      if (sum(is.infinite(compl.dataset.dt$nDSM_div_SD_nDSM)) >= 1){
-        compl.dataset.dt <- compl.dataset.dt[!is.infinite(compl.dataset.dt$nDSM_div_SD_nDSM)]
-        
+      if (sum(is.infinite(objects_clip_short@data$nDSM_div_SD_nDSM)) >= 1){
+        drops3 <- c("nDSM_div_SD_nDSM")
+        objects_clip_short@data <- objects_clip_short@data[,!(names(objects_clip_short@data) %in% drops3)]}
+       
+ 
+      
       #RF prediction on full map
       Y.predicted.map <- predict(RF_complete, objects_clip_short@data[, predictors], type="response", predict.all=F, nodes=F)
       ## add foreach() to run in parallel over tiles
@@ -475,7 +484,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       objects.map@data[, !colnames(objects.map@data) %in% params$cols.to.keep] <- list(NULL)
       objects.map@data$pred_class <- Y.predicted.map
       
-      writeOGR(objects.map, results.dir, sprintf("Prediction_map_unclass2_%s_%s", gt.type, pred.type), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
+      writeOGR(objects.map, results.dir, sprintf("Prediction_map_unclass2_BTin_%s_%s", gt.type, pred.type), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
       
     }  ## end if params$predictors.all
 
