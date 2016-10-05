@@ -49,26 +49,20 @@ params <- list()
 ## General
 params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$run.ShpRead <- F # set to T if shapefiles have not been read in yet, set to F if they have, so that code can be run from start
-## list of all starting predictors
- 
-## !!! GIONA !!!
-# added "BLABLA", removed "Bright_vis"
-params$predictors.spectral <- c("BLABLA", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
+params$run.ShpRead <- F # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
+## list of all starting predictors 
+params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
                                 "Mean_Blue", "Mean_Green", "Mean_Red","Mean_RE","Mean_NIR","NDRE", 
                                 "NDVI", "NDVIRE","NIR_div_RE","SAVI","sd_red", 
                                 "sd_blue","sd_green", "sd_RE", "sd_NIR")
-## !!! GIONA !!!
-
 params$predictors.LiDAR <- c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
                              "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
-                             "nDSM_div_SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev") 
+                             "sd_ndsm", "sd_slope", "sd_zdev") 
 params$predictors.geometric <-  c("Border_ind", "Compactnes", "Density", "EllipticFi",
                                   "Len_div_Width", "RectangFit","RelBord_bldg",
                                   "RelBord_trees", "RelBord_unclass", "Roundness")
 
 params$predictors.all <- c(params$predictors.spectral,params$predictors.LiDAR,params$predictors.geometric)                                                                    
-
 
 ## RF
 params$nfold <- 4
@@ -107,7 +101,6 @@ classif.metrics <- function(predicted, observed) {
   }
   return(list( Kappa=as.vector(RES$overall[2]), Fmeas=(2*PA*UA)/(PA+UA), ConfMat=RES$table))
 }
-
 #### READ DATA --------------------------------------------------------------
 
 tic <- proc.time() ## start clocking global time
@@ -257,7 +250,6 @@ dim((points.short)) #should be less #hooray
 points.short@data$Onem_Class_2_1st_choice
 
 #fix any mispelled class names for the ground truth points 
-
 # choose the columns you want to use
 change <- grep("Class_2", names(points.short))
 change #use columns 5 and 11
@@ -304,34 +296,35 @@ points.short@data[,11] <- gsub(
 unique(points.short@data[,11])
 
 ### checking to make sure points numbers are respected when filtering
-a <- points.short@data %>% 
-  select(Point_Number,Shape_Area,Onem_Class_2_1st_choice)
-a
-
-b <- points.short@data %>% 
-  select(Point_Number,Shape_Area,Onem_Class_2_1st_choice) %>% 
-  filter(!(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
-b  
-
-length(a[,2])
-length(b[,2])
-
-a[,1] %in% b[,1]
-a[,2] %in% b[,2]
-
-head(a,15)
-head(b)
-tail(a,15)
-tail(b)
-
-filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
+# a <- points.short@data %>% 
+#   select(Point_Number,Shape_Area,Onem_Class_2_1st_choice)
+# a
+# 
+# b <- points.short@data %>% 
+#   select(Point_Number,Shape_Area,Onem_Class_2_1st_choice) %>% 
+#   filter(!(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
+# b  
+# 
+# length(a[,2])
+# length(b[,2])
+# 
+# a[,1] %in% b[,1]
+# a[,2] %in% b[,2]
+# 
+# head(a,15)
+# head(b)
+# tail(a,15)
+# tail(b)
+# 
+# filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
 
 #remove building or tree points
-points.short@data <- filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
+# points.short@data <- filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
 unique(points.short@data[,5])
 unique(points.short@data[,11])
 
-
+points.short@data %>% 
+  select(Point_Number,Onem_Class_2_1st_choice)
 
 ##### START OF THE LOOP, choosing which group to include ----------------------
 RES <- list()  ## initialize list object to store results
@@ -366,6 +359,9 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   rm(compl.dataset)
   compl.dataset.dt
   
+  
+  compl.dataset.dt %>% 
+    select(Point_Number,Onem_Class_2_1st_choice)
   #delete any inf and na values from predictor columns
   
   if (sum(is.infinite(compl.dataset.dt$CoefVar_nD)) >= 1){
@@ -373,7 +369,9 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
                                            is.infinite(compl.dataset.dt$CoefVar_nD), 0)}
   
   if (sum(is.infinite(compl.dataset.dt$nDSM_div_SD_nDSM)) >= 1){
-    compl.dataset.dt <- compl.dataset.dt[!is.infinite(compl.dataset.dt$nDSM_div_SD_nDSM)]
+    compl.dataset.dt <- compl.dataset.dt[!is.infinite(compl.dataset.dt$nDSM_div_SD_nDSM)]}
+  
+  
     
 #   if (sum(is.na(compl.dataset.dt)) >= 1){
 #     compl.dataset.dt <- do.call(data.table,lapply(compl.dataset.dt, 
@@ -453,7 +451,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
     eval(parse(text=cmd))
 	
     
-    RES.file = file.path(results.dir, 'RESULTS_Van_2.Rdata', fsep = .Platform$file.sep) 
+    RES.file = file.path(results.dir, 'RESULTS_Van_2_BTin.Rdata', fsep = .Platform$file.sep) 
     save(RES, file = RES.file)    
     
 #### PREDICTION ON FULL MAP ------------------------------------------------
@@ -464,16 +462,19 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       RF_complete <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y=compl.dataset.dt[[class.col]],   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
                                   ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
       
-      # remove na/nan/inf from objects_clip_short@data[, predictors]
-      #delete any na, nan or inf values from predictor columns
+      # remove inf from objects_clip_short@data[, predictors]
+      #delete nDSM/sd_Ndsm if it contains more than one inf value b/c infs cannot be set to 0
       
-      if (sum(is.infinite(compl.dataset.dt$CoefVar_nD)) >= 1){
-        compl.dataset.dt$CoefVar_nD <- replace(compl.dataset.dt$CoefVar_nD, 
-                                               is.infinite(compl.dataset.dt$CoefVar_nD), 0)}
+      if (sum(is.infinite(objects_clip_short@data$CoefVar_nD)) >= 1){
+        objects_clip_short@data$CoefVar_nD <- replace(objects_clip_short@data$CoefVar_nD, 
+                                               is.infinite(objects_clip_short@data$CoefVar_nD), 0)}
       
-      if (sum(is.infinite(compl.dataset.dt$nDSM_div_SD_nDSM)) >= 1){
-        compl.dataset.dt <- compl.dataset.dt[!is.infinite(compl.dataset.dt$nDSM_div_SD_nDSM)]
-        
+      if (sum(is.infinite(objects_clip_short@data$nDSM_div_SD_nDSM)) >= 1){
+        drops3 <- c("nDSM_div_SD_nDSM")
+        objects_clip_short@data <- objects_clip_short@data[,!(names(objects_clip_short@data) %in% drops3)]}
+       
+ 
+      
       #RF prediction on full map
       Y.predicted.map <- predict(RF_complete, objects_clip_short@data[, predictors], type="response", predict.all=F, nodes=F)
       ## add foreach() to run in parallel over tiles
@@ -483,7 +484,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       objects.map@data[, !colnames(objects.map@data) %in% params$cols.to.keep] <- list(NULL)
       objects.map@data$pred_class <- Y.predicted.map
       
-      writeOGR(objects.map, results.dir, sprintf("Prediction_map_unclass2_%s_%s", gt.type, pred.type), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
+      writeOGR(objects.map, results.dir, sprintf("Prediction_map_unclass2_BTin_%s_%s", gt.type, pred.type), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
       
     }  ## end if params$predictors.all
 
@@ -491,54 +492,11 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 
 }  ## end of loop over GT types
 
-RES.file = file.path(results.dir, 'RESULTS_Van.Rdata', fsep = .Platform$file.sep) 
-save(RES, file = RES.file)
-
-## !!!!!!!!!! TO DELETE: FROM HERE !!!!!!!!!!
-#### PREDICT ON FULL MAP ------------------------------------------------
-
-# XXXXXXXXXXXXXXXXX
-# paste RF on FULL dataset
-# XXXXXXXXXXXXXXXXX
-# 
-
-compl.dataset.df <- as.data.frame(compl.dataset.dt)
-RF_comp <- randomForest(x=compl.dataset.df[, predictors], y=as.factor(compl.dataset.df[[class.col]]),   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
-                   ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
-
-
-#this is what testing out a github push pull system looks like
-
-
-## Prediction on left-out segments
-# Y.predicted.segments.out <- predict(RF, compl.dataset.dt[segments.out, predictors, with=FALSE], type="response", predict.all=F, nodes=F)
-
-# ## Save Segments
-# 
-# ## Save shp with predicted class
-# ## build a dt with the predicted class for each segment (Y.predicted.segments.out) and the associated segment ID (single.scale.obj.df[segments.out, "segID"])
-# y.pred.segID.dt <- data.table(segID=single.scale.obj.dt[segments.out, segID], ypred=Y.predicted.segments.out)
-# 
-# ## assign the predicted class to the "data" df of the segments shp by merging by segment ID ("dn" or "segID"), all.x=T is used to keep the segments for which there is no prediction (outside of fire)
-# segments@data <- merge(segments@data, y.pred.segID.dt, by.x="dn", by.y="segID", all.x=T)  
-# segments@data$ypred[is.na(segments@data$ypred)] <- params$mort.class.labels[1]    ## if NA are assigned to polygons outside of fire, assign the lowest mortality class instead
-# writeOGR(segments, results.dir, sprintf("%s_pred_map_%s", fire.out, best.colname), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile for the left-out fire
-# 
-# ## Join the predicted labels for the segments to the corresponding segID in the complete vector of all images
-# setkey(y.pred.segID.dt, segID) ## set key as the segment IDs column
-# segID.allpixels.out.dt <- data.table(segID=allpixels.out.dt[,segID], key = "segID") #
-# Y.predicted.object.single[idx.pix.out] <- segID.allpixels.out.dt[y.pred.segID.dt, ypred]  ## join to data.table based on a common key with this command allpixels.out.segID.dt[y.pred.segID.dt], then select only ypred as a column
-## !!!!!!!!!! TO DELETE: TO HERE !!!!!!!!!!
-
-
-
 #### PRINT LOGS ---------------------------------------------------------
 
 ## clock global time
 toc <- proc.time()-tic[3]
 end.message <- sprintf("Total elapsed time: %s, finished running on %s", seconds_to_period(toc[3]), Sys.time())
 print(end.message)
-
-
 
 
