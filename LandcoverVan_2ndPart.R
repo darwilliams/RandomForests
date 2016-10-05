@@ -5,7 +5,7 @@ start.message <- sprintf("Vancouver landuse/landcover classification, started ru
 print(start.message)
 
 ## !!! GIONA !!!
-# setwd("D:\\RandomForests")
+setwd("D:\\RandomForests")
 
 ## I ADDED THIS LINE AND I WANT TO KEEP IT
 
@@ -56,13 +56,13 @@ params$run.ShpRead <- F # set to T if shapefiles have not been read in yet, set 
 # added "BLABLA", removed "Bright_vis"
 params$predictors.spectral <- c("BLABLA", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
                                 "Mean_Blue", "Mean_Green", "Mean_Red","Mean_RE","Mean_NIR","NDRE", 
-                                "nDSM_div_SD_nDSM", "NDVI", "NDVIRE","NIR_div_RE","SAVI","sd_red", 
+                                "NDVI", "NDVIRE","NIR_div_RE","SAVI","sd_red", 
                                 "sd_blue","sd_green", "sd_RE", "sd_NIR")
 ## !!! GIONA !!!
 
 params$predictors.LiDAR <- c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
                              "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
-                             "nDSM_div_SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev")
+                             "nDSM_div_SD_nDSM", "sd_ndsm", "sd_slope", "sd_zdev") 
 params$predictors.geometric <-  c("Border_ind", "Compactnes", "Density", "EllipticFi",
                                   "Len_div_Width", "RectangFit","RelBord_bldg",
                                   "RelBord_trees", "RelBord_unclass", "Roundness")
@@ -78,6 +78,7 @@ params$ntree <- 100     ## RF nr of trees
 params$mtry <- 'sqrt_nr_var'  ## how to set RF mtry: 'sqrt_nr_var' or 'nr_var_div_3'
 params$nodesize <- 1   ## RF nodesize: default for classification is 1
 params$plot.importance <- F  ## whether to plot RF variable importance
+params$prediction.maps <- T
 
 base.dir <- 'D:/RandomForests'    ## base working directory
 
@@ -90,10 +91,21 @@ objects.folder <- "Vancouver/shp"
 
 ## returns F-measure for each class and global Kappa statistic
 classif.metrics <- function(predicted, observed) {
-  RES <- confusionMatrix(predicted, observed)
-  sens <- RES$byClass[, "Sensitivity"]
-  spec <- RES$byClass[, "Specificity"]
-  return(list( Kappa=as.vector(RES$overall[2]), Fmeas=(2*sens*spec)/(sens+spec), ConfMat=RES$table))
+  if ( length(levels(observed)) > 2 & length(unique(observed)) > 2) { ## handle the multi-class case
+    RES <- confusionMatrix(predicted, observed)
+    PA <- RES$byClass[, "Sensitivity"] ## Producer's accuracy, 1 - omission error, TP/(observed total)
+    UA <- RES$byClass[, "Pos Pred Value"] ## User's accuracy, 1 - commission error, TP/(predicted total)
+  } else if ( length(levels(observed)) == 2 | length(unique(observed)) == 2 ) { ## handle the binary class case
+    RES <- confusionMatrix(predicted, observed, positive=levels(predicted)[1]) ## first run assessment setting first class as positive
+    PA <- RES$byClass[["Sensitivity"]] ## save producers accuracy...
+    UA <- RES$byClass[["Pos Pred Value"]] ## ...and users accuracy
+    RES <- confusionMatrix(predicted, observed, positive=levels(predicted)[2]) ## then repeat with second class
+    PA <- c(PA, RES$byClass[["Sensitivity"]]) ## and complete PA vector
+    UA <- c(UA, RES$byClass[["Pos Pred Value"]]) ## and UA vector
+  } else {
+    stop("Observed values: less than 2 levels or levels to be updated") 
+  }
+  return(list( Kappa=as.vector(RES$overall[2]), Fmeas=(2*PA*UA)/(PA+UA), ConfMat=RES$table))
 }
 
 #### READ DATA --------------------------------------------------------------
@@ -236,11 +248,13 @@ points.raw.short <- points.raw[,!(names(points.raw) %in% drops2)]
 names(points.raw.short)
 
 # remove NA rows
+points.raw.short@data$Onem_Class_2_1st_choice
 indices <- !is.na(points.raw.short@data$Onem_Class_2_1st_choice)
+indices
 points.short <- (points.raw.short[which(indices),])
 dim((points.raw.short)) #should be 400 or 0-399
 dim((points.short)) #should be less #hooray
-
+points.short@data$Onem_Class_2_1st_choice
 
 #fix any mispelled class names for the ground truth points 
 
@@ -289,30 +303,51 @@ points.short@data[,11] <- gsub(
 
 unique(points.short@data[,11])
 
-# the commented-out code below looks to already be in the RF loop
-## initialize empty factor matrix with appropriate levels to store final class predictions at each round of the Leave-one-out cross-validation loop for each scenario
-# Y.predicted <- data.table(
-#   replicate(
-#     length(params$GT.types)*length(params$predictor.types),
-#     factor( 
-#       rep(NA, nrow(compl.dataset)),
-#       levels=levels(compl.dataset[, class.col]) 
-#     )
-#   )
-# )
+### checking to make sure points numbers are respected when filtering
+a <- points.short@data %>% 
+  select(Point_Number,Shape_Area,Onem_Class_2_1st_choice)
+a
+
+b <- points.short@data %>% 
+  select(Point_Number,Shape_Area,Onem_Class_2_1st_choice) %>% 
+  filter(!(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
+b  
+
+length(a[,2])
+length(b[,2])
+
+a[,1] %in% b[,1]
+a[,2] %in% b[,2]
+
+head(a,15)
+head(b)
+tail(a,15)
+tail(b)
+
+filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
+
+#remove building or tree points
+points.short@data <- filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
+unique(points.short@data[,5])
+unique(points.short@data[,11])
+
+
 
 ##### START OF THE LOOP, choosing which group to include ----------------------
 RES <- list()  ## initialize list object to store results
-for (gt.type in params$GT.types) {  ## loop using one of five m ground truth polys
+for (gt.type in params$GT.types) {  ## loop using one or five m ground truth polys
   
   ## filter points to keep only the desired GT level ("One_m" or "Five_m")
   if (gt.type == "One_m") {
     points <- subset(points.short, Shape_Area < 10)
     class.col <- "Onem_Class_2_1st_choice"
   } else if (gt.type == "Five_m") {
-    points <- subset(points.short, Shape_Area > 10 & Onem_Class_2_1st_choice == Fivem_Class_2_1st_choice)  ## watch out for names (to be changed)!
+    points <- subset(points.short, Shape_Area > 10) # see if this change improves things somehow
+    # points <- subset(points.short, Shape_Area > 10 & Onem_Class_2_1st_choice == Fivem_Class_2_1st_choice) ## watch out for names (to be changed)!
     class.col <- "Fivem_Class_2_1st_choice"
   }
+  
+
   
 #### SPATIAL JOIN --------------------------------------------------------------
   
@@ -328,11 +363,16 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
   compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
   compl.dataset.dt <- as.data.table(compl.dataset)
   rm(compl.dataset)
+  compl.dataset.dt
   
-  # set class label column as factor
-#   cmd <- sprintf("compl.dataset.dt[, %s:=as.factor(%s)] ", class.col, class.col)
-#   eval(parse(text=cmd))
-  compl.dataset.dt[, (class.col) := lapply(.SD, factor), .SDcols=class.col]
+  #delete any na, nan or inf values from predictor columns
+  if (sum((compl.dataset.dt[, colSums(sapply(compl.dataset.dt, is.infinite))])) >= 1){
+    compl.dataset.dt <- do.call(data.table,lapply(compl.dataset.dt, 
+                                                  function(x) replace(x, is.infinite(x),NA)))}
+  
+  if (sum(is.na(compl.dataset.dt)) >= 1){
+    compl.dataset.dt <- do.call(data.table,lapply(compl.dataset.dt, 
+                                                  function(x) replace(x, is.na(x),0)))}
   
 #### Create n-fold CV indicators------------------------------------
   set.seed(params$seed)
@@ -349,6 +389,8 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
       predictors <- params$predictors.LiDAR
     }
     
+    # set class label column as factor
+    compl.dataset.dt[, (class.col) := lapply(.SD, as.factor),.SDcols=class.col]
     ## Initialize empty vector to store N-fold predictions at each round of the loop
     Y.predicted <- factor( rep(NA, nrow(compl.dataset.dt)), levels=levels(compl.dataset.dt[[class.col]]) )
 
@@ -381,7 +423,7 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
       
     }  ## end of n-fold loop
     
-#### ASSESSMENT -----------------------------------------------------------
+#### ASSESSMENT ----------------------------------------------------------- #will this work here?
     
     ## overall assessment
     metrics <- classif.metrics(Y.predicted, compl.dataset.dt[[class.col]])
@@ -390,27 +432,47 @@ for (gt.type in params$GT.types) {  ## loop using one of five m ground truth pol
     cmd <- sprintf("RES$%s$%s <- metrics", gt.type, pred.type)
     eval(parse(text=cmd))
 	
-#### PREDICTION ON FULL MAP ------------------------------------------------
     
+    RES.file = file.path(results.dir, 'RESULTS_Van.Rdata', fsep = .Platform$file.sep) 
+    save(RES, file = RES.file)    
+    
+#### PREDICTION ON FULL MAP ------------------------------------------------
+
+
     if (params$prediction.maps) {
       
-      RF <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y=compl.dataset.dt[[class.col]],   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
-                         ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
+      RF_complete <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y=compl.dataset.dt[[class.col]],   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
+                                  ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
       
-      Y.predicted.map <- predict(RF, segments_clip@data[, predictors], type="response", predict.all=F, nodes=F)
+      # remove na/nan/inf from objects_clip_short@data[, predictors]
+      #delete any na, nan or inf values from predictor columns
+      
+      obj.dt <- as.data.table(objects_clip_short@data[, predictors])
+      
+      if ( any(obj.dt[, colSums(sapply(.SD, is.infinite))]!=0) ) {
+        objects_clip_short@data <- do.call( data.frame,lapply(objects_clip_short@data[, predictors], 
+                                                              function(x) replace(x, is.infinite(x), 0)) )
+      }
+      
+      if (sum(is.na(objects_clip_short@data[, predictors])) >= 1){
+        compl.dataset.dt <- do.call( data.table,lapply(objects_clip_short@data[, predictors], 
+                                                       function(x) replace(x, is.na(x),0)) )
+      }
+      
+      Y.predicted.map <- predict(RF_complete, objects_clip_short@data[, predictors], type="response", predict.all=F, nodes=F)
       ## add foreach() to run in parallel over tiles
       
-      params$cols.to.keep <- c("ID", "bla", "blabla")
-      objects.map <- objects_clip
+      params$cols.to.keep <- params$predictors.all
+      objects.map <- objects_clip_short
       objects.map@data[, !colnames(objects.map@data) %in% params$cols.to.keep] <- list(NULL)
       objects.map@data$pred_class <- Y.predicted.map
       
-      writeOGR(segments.map, results.dir, sprintf("Prediction_map_%s_%s", gt.type, pred.type), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
-    
-    }  ## end if params$prediction.maps
-    
+      writeOGR(objects.map, results.dir, sprintf("Prediction_map_unclass2_%s_%s", gt.type, pred.type), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
+      
+    }  ## end if params$predictors.all
+
   } ## end of loop over predictor types
-   
+
 }  ## end of loop over GT types
 
 RES.file = file.path(results.dir, 'RESULTS_Van.Rdata', fsep = .Platform$file.sep) 
