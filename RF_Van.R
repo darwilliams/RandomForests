@@ -452,8 +452,9 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 	
     
     RES.file = file.path(results.dir, 'RESULTS_Van_2_BTin.Rdata', fsep = .Platform$file.sep) 
-    save(RES, file = RES.file)    
-    
+    save(RES, file = RES.file)
+    #Dave dislikes this Rdata file, so I'm going to use rds instead
+    saveRDS(RES, paste0(results.dir,"/results_van.RDS"))
 #### PREDICTION ON FULL MAP ------------------------------------------------
 
 
