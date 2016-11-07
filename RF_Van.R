@@ -34,7 +34,8 @@ list.of.packages <- c("caret",
                       "doParallel", 
                       "foreach",
                       "data.table",
-                      "tidyverse"
+                      "tidyverse",
+                      "forcats"
 )
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   ## named vector members whose name is "Package"
 if(length(new.packages)) install.packages(new.packages)   ## install only unavailable packages
@@ -454,7 +455,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
     RES.file = file.path(results.dir, 'RESULTS_Van_2_BTin.Rdata', fsep = .Platform$file.sep) 
     save(RES, file = RES.file)
     #Dave dislikes this Rdata file, so I'm going to use rds instead
-    saveRDS(RES, paste0(results.dir,"/results_van.RDS"))
+    saveRDS(RES, paste0(results.dir,"/results_van.rds"))
 #### PREDICTION ON FULL MAP ------------------------------------------------
 
 
