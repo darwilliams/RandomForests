@@ -4,7 +4,6 @@ rm(list=ls())  ## remove all variables
 start.message <- sprintf("Vancouver landuse/landcover classification, started running on %s", Sys.time())
 print(start.message)
 
-## !!! GIONA !!!
 setwd("D:\\RandomForests")
 
 ## I ADDED THIS LINE AND I WANT TO KEEP IT
@@ -46,6 +45,7 @@ for (pack in list.of.packages){
 
 # initialize params as list
 params <- list()
+
 ## General
 params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
@@ -64,6 +64,10 @@ params$predictors.geometric <-  c("Border_ind", "Compactnes", "Density", "Ellipt
 
 params$predictors.all <- c(params$predictors.spectral,params$predictors.LiDAR,params$predictors.geometric)                                                                    
 
+#### GIONA ####
+params$tile.names <- c("Vancouver_Downtown", "Surrey", etc.........)
+#### GIONA ####
+
 ## RF
 params$nfold <- 4
 params$seed <- 2016        ## seed to have same RF result
@@ -75,11 +79,6 @@ params$plot.importance <- F  ## whether to plot RF variable importance
 params$prediction.maps <- T
 
 base.dir <- 'D:/RandomForests'    ## base working directory
-
-points.filename <- "VanSubsetPoints_Buffer_SJ_unambig"
-points.folder <- "Vancouver/shp"
-objects.filename <- "Vancouver_unclassified_final_v9"
-objects.folder <- "Vancouver/shp"
 
 #### FUNCTIONS ----------------------------------------------------------
 
@@ -101,6 +100,7 @@ classif.metrics <- function(predicted, observed) {
   }
   return(list( Kappa=as.vector(RES$overall[2]), Fmeas=(2*PA*UA)/(PA+UA), ConfMat=RES$table))
 }
+
 #### READ DATA --------------------------------------------------------------
 
 tic <- proc.time() ## start clocking global time
@@ -113,6 +113,24 @@ figures.dir <- file.path(base.dir, "Figures", fsep = .Platform$file.sep)   ## fi
 dir.create(figures.dir)
 # temp.dir <- file.path(data.dir, "temp")  ## directory for temporary files like the segmentation shps (overwritten each time)
 # if (!file.exists(temp.dir)) {dir.create(temp.dir, showWarnings=F, recursive=T)}  ## create it
+
+#### GIONA ####
+# nr.clusters <- length(params$tile.names)  ## to uncomment when running in parallel, after successful debugging
+# cl <- makeCluster(nr.clusters)
+# registerDoParallel(cl)
+# foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {
+for (tile.idx in 1:length(params$tile.names)) {   
+
+	tile.name <- params$tile.names[tile.idx]
+	
+## STILL TO INCLUDE
+sprintf("%s", tile.name)
+
+points.filename <- "VanSubsetPoints_Buffer_SJ_unambig"
+points.folder <- "Vancouver/shp"
+objects.filename <- "Vancouver_unclassified_final_v9"
+objects.folder <- "Vancouver/shp"
+#### GIONA ####
 
 # set up data directories
 objects.path <- file.path(data.dir, objects.folder, fsep = .Platform$file.sep) 
@@ -325,41 +343,70 @@ unique(points.short@data[,11])
 
 points.short@data %>% 
   select(Point_Number,Onem_Class_2_1st_choice)
+ 
+ #### GIONA ####
+ writeOGR(objects_clip_short, objects.path, sprintf("unclass_objects_clip_%s", tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
+ writeOGR(points.short, points.path, sprintf("%s_%s", points.filename, tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
+ #### GIONA ####
 
-##### START OF THE LOOP, choosing which group to include ----------------------
+ }
+ 
+ 
+##### START OF THE LOOP, choosing which group to include -------------------------
+
 RES <- list()  ## initialize list object to store results
 for (gt.type in params$GT.types) {  ## loop using one or five m ground truth polys
   
-  ## filter points to keep only the desired GT level ("One_m" or "Five_m")
-  if (gt.type == "One_m") {
-    points <- subset(points.short, Shape_Area < 10)
-    class.col <- "Onem_Class_2_1st_choice"
-  } else if (gt.type == "Five_m") {
-    points <- subset(points.short, Shape_Area > 10) # see if this change improves things somehow
-    # points <- subset(points.short, Shape_Area > 10 & Onem_Class_2_1st_choice == Fivem_Class_2_1st_choice) ## watch out for names (to be changed)!
-    class.col <- "Fivem_Class_2_1st_choice"
-  }
-  
+	#### GIONA ####
+	first.tile <- T   ## to execute specific code for the first tile only (initialize the big shapefiles)
 
+	# nr.clusters <- length(params$tile.names)
+	# cl <- makeCluster(nr.clusters)
+	# registerDoParallel(cl)
+	# foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
+	for (tile.idx in 1:length(params$tile.names)) {   
+
+		tile.name <- params$tile.names[tile.idx]
+
+		objects_clip_short <- readOGR(dsn =objects.path, layer =sprintf("unclass_objects_clip_%s", tile.name)
+		points.short <- readOGR(dsn=points.path, layer=sprintf("%s_%s", points.filename, tile.name)) 
+			
+		## filter points to keep only the desired GT level ("One_m" or "Five_m")
+		if (gt.type == "One_m") {
+		points <- subset(points.short, Shape_Area < 10)
+		class.col <- "Onem_Class_2_1st_choice"
+		} else if (gt.type == "Five_m") {
+		points <- subset(points.short, Shape_Area > 10) # see if this change improves things somehow
+		# points <- subset(points.short, Shape_Area > 10 & Onem_Class_2_1st_choice == Fivem_Class_2_1st_choice) ## watch out for names (to be changed)!
+		class.col <- "Fivem_Class_2_1st_choice"
+		}
+	  
+		#### SPATIAL JOIN --------------------------------------------------------------
+
+		## solution with union() from Raster package which has more options (not working!)
+		# objects <- gBuffer(objects, byid=TRUE, width=0)
+		# points <- gBuffer(points, byid=TRUE, width=0)
+		# union.res <- union(objects, points)
+
+
+		#THIS spatial join might be where the GT problem is coming in
+		# spatial join the polygons with over()
+		points.w.values <- over(points, objects_clip_short)
+		points.merged <- cbind(points@data, points.w.values)  ## stack together GT columns and predictor values
+		compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
+		
+		if (first.tile) {
+			compl.dataset.dt <- as.data.table(compl.dataset)
+			first.tile <- F   ## change logical to FALSE so that 2nd part of if-else block is used from now on
+		} else {
+			compl.dataset.dt <- rbind(compl.dataset.dt, as.data.table(compl.dataset))
+		}
+		
+		rm(compl.dataset)
   
-#### SPATIAL JOIN --------------------------------------------------------------
-  
-  ## solution with union() from Raster package which has more options (not working!)
-  # objects <- gBuffer(objects, byid=TRUE, width=0)
-  # points <- gBuffer(points, byid=TRUE, width=0)
-  # union.res <- union(objects, points)
-  
-  
-  #THIS spatial join might be where the GT problem is coming in
-  # spatial join the polygons with over()
-  points.w.values <- over(points, objects_clip_short)
-  points.merged <- cbind(points@data, points.w.values)  ## stack together GT columns and predictor values
-  compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
-  compl.dataset.dt <- as.data.table(compl.dataset)
-  rm(compl.dataset)
-  compl.dataset.dt
-  
-  
+    }
+	#### GIONA ####
+
   compl.dataset.dt %>% 
     select(Point_Number,Onem_Class_2_1st_choice)
   #delete any inf and na values from predictor columns
@@ -449,49 +496,67 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
     ## store results by GT type and by predictors type in RES list
     cmd <- sprintf("RES$%s$%s <- metrics", gt.type, pred.type)
     eval(parse(text=cmd))
-	
-    
-    RES.file = file.path(results.dir, 'RESULTS_Van_2_BTin.Rdata', fsep = .Platform$file.sep) 
-    save(RES, file = RES.file)
-    #Dave dislikes this Rdata file, so I'm going to use rds instead
-    saveRDS(RES, paste0(results.dir,"/results_van.RDS"))
+
 #### PREDICTION ON FULL MAP ------------------------------------------------
 
 
     if (params$prediction.maps) {
       
-      RF_complete <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y=compl.dataset.dt[[class.col]],   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
-                                  ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
-      
-      # remove inf from objects_clip_short@data[, predictors]
-      #delete nDSM/sd_Ndsm if it contains more than one inf value b/c infs cannot be set to 0
-      
-      if (sum(is.infinite(objects_clip_short@data$CoefVar_nD)) >= 1){
-        objects_clip_short@data$CoefVar_nD <- replace(objects_clip_short@data$CoefVar_nD, 
-                                               is.infinite(objects_clip_short@data$CoefVar_nD), 0)}
-      
-      if (sum(is.infinite(objects_clip_short@data$nDSM_div_SD_nDSM)) >= 1){
-        drops3 <- c("nDSM_div_SD_nDSM")
-        objects_clip_short@data <- objects_clip_short@data[,!(names(objects_clip_short@data) %in% drops3)]}
-       
- 
-      
-      #RF prediction on full map
-      Y.predicted.map <- predict(RF_complete, objects_clip_short@data[, predictors], type="response", predict.all=F, nodes=F)
-      ## add foreach() to run in parallel over tiles
-      
-      params$cols.to.keep <- params$predictors.all
-      objects.map <- objects_clip_short
-      objects.map@data[, !colnames(objects.map@data) %in% params$cols.to.keep] <- list(NULL)
-      objects.map@data$pred_class <- Y.predicted.map
-      
-      writeOGR(objects.map, results.dir, sprintf("Prediction_map_unclass2_BTin_%s_%s", gt.type, pred.type), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
-      
-    }  ## end if params$predictors.all
+		RF_complete <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y=compl.dataset.dt[[class.col]],   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
+								  ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
+
+		# remove inf from objects_clip_short@data[, predictors]
+		#delete nDSM/sd_Ndsm if it contains more than one inf value b/c infs cannot be set to 0
+
+		
+		#### GIONA ####
+		#### LOOP ON TILES FOR PREDICTION -----------------------------------------
+
+		# nr.clusters <- length(params$tile.names)
+		# cl <- makeCluster(nr.clusters)
+		# registerDoParallel(cl)
+		# foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
+		for (tile.idx in 1:length(params$tile.names)) {   
+
+			tile.name <- params$tile.names[tile.idx]
+
+			objects_clip_short <- readOGR(dsn =objects.path, layer =sprintf("unclass_objects_clip_%s", tile.name)
+
+			if (sum(is.infinite(objects_clip_short@data$CoefVar_nD)) >= 1){
+			objects_clip_short@data$CoefVar_nD <- replace(objects_clip_short@data$CoefVar_nD, 
+												   is.infinite(objects_clip_short@data$CoefVar_nD), 0)}
+
+			if (sum(is.infinite(objects_clip_short@data$nDSM_div_SD_nDSM)) >= 1){
+			drops3 <- c("nDSM_div_SD_nDSM")
+			objects_clip_short@data <- objects_clip_short@data[,!(names(objects_clip_short@data) %in% drops3)]}
+
+
+
+			#RF prediction on full map
+			Y.predicted.map <- predict(RF_complete, objects_clip_short@data[, predictors], type="response", predict.all=F, nodes=F)
+
+			params$cols.to.keep <- params$predictors.all
+			objects.map <- objects_clip_short
+			objects.map@data[, !colnames(objects.map@data) %in% params$cols.to.keep] <- list(NULL)
+			objects.map@data$pred_class <- Y.predicted.map
+
+			writeOGR(objects.map, results.dir, sprintf("Prediction_map_unclass2_BTin_%s_%s_%s", gt.type, pred.type, tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
+			
+		}
+		#### GIONA ####
+	  
+    }  ## end if params$prediction.maps
 
   } ## end of loop over predictor types
 
 }  ## end of loop over GT types
+
+#### GIONA ####
+RES.file = file.path(results.dir, 'RESULTS_Van_2_BTin.Rdata', fsep = .Platform$file.sep) 
+save(RES, file = RES.file)
+#Dave dislikes this Rdata file, so I'm going to use rds instead
+saveRDS(RES, paste0(results.dir,"/results_van.RDS"))
+#### GIONA ####
 
 #### PRINT LOGS ---------------------------------------------------------
 
