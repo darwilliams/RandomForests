@@ -1,0 +1,17 @@
+Prediction,Reference,Freq
+Building,Building,0
+Grass-Herb,Building,0
+Paved,Building,2
+Trees,Building,1
+Building,Grass-Herb,0
+Grass-Herb,Grass-Herb,12
+Paved,Grass-Herb,3
+Trees,Grass-Herb,0
+Building,Paved,0
+Grass-Herb,Paved,1
+Paved,Paved,28
+Trees,Paved,1
+Building,Trees,0
+Grass-Herb,Trees,1
+Paved,Trees,2
+Trees,Trees,0
