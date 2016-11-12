@@ -47,6 +47,26 @@ for (n in 1:length(filenames)){
     rm(x)
 }
 
+#Drop extra variables from tables
+for (n in 1:length(filenames)){
+  drops <- "Extra_notes"
+  x <- get(filenames[n])
+  y <- x[,!(names(x) %in% drops)]
+  assign(filenames[n],y)
+  rm(x)
+  rm(y)
+}
+
+
+#Make all the names of the tables the same
+for (n in 1:length(filenames)){
+  x <- get(filenames[n])
+  names(x) <- names(Bin1)
+  assign(filenames[n],x)
+  rm(x)
+}
+
+
 #Read shp files of points
 shp.path <- "E:\\MetroVancouverData\\Training_Validation_Points\\Points"
 x <- 1:16
@@ -58,7 +78,18 @@ for (n in 1:length(filenames)){
   rm(x)
 }
 
+#Drop extra variables from points
+for (n in 1:length(shpnames)){
+  drops <- "OID_"
+  x <- get(shpnames[n])
+  y <- x[,!(names(x) %in% drops)]
+  assign(shpnames[n],y)
+  rm(x)
+  rm(y)
+}
+
 #Read in buffer shp files
+shp.path <- "E:\\MetroVancouverData\\Training_Validation_Points\\Bufs"
 x <- 1:16
 bufnames <- paste0("Bin",x,"_buf")
 bufshpnames <- paste0("Bin",x,"_buf","shp")
@@ -68,11 +99,19 @@ for (n in 1:length(bufnames)){
   rm(x)
 }
 
+#Drop extra variable from buf
+for (n in 1:length(bufshpnames)){
+  drops <- "OID_"
+  x <- get(bufshpnames[n])
+  y <- x[,!(names(x) %in% drops)]
+  assign(bufshpnames[n],y)
+  rm(x)
+  rm(y)
+}
+
 #join the csvs to the points
 x <- 1:16
 data_join_names <- paste0("Bin",x,"shp_csvJoin")
-# shpnames
-# filenames
 
 for(n in 1:length(filenames)){
   y <- get(shpnames[n])@data %>% 
@@ -85,7 +124,8 @@ for(n in 1:length(filenames)){
 }
 
 #create PointID variable for buffer polygons from ORIG_FID variable
-x <- 1:16
+#leave out Bin 16, because Bin 16 points go from 0 to 199, not 1 to 200
+x <- 1:15
 buf_join_names <- paste0("Bin",x,"_buf","shp_join") 
   
 for(n in 1:length(bufshpnames)){
@@ -98,11 +138,17 @@ for(n in 1:length(bufshpnames)){
   rm(z)
 }
 
+y <- Bin16_bufshp@data %>% 
+  mutate(PointID = ORIG_FID)
+z <- Bin16_bufshp
+z@data <- y
+Bin16_bufshp_join <- z
+# assign(buf_join_names[16],z)
+
 #join the expanded points data to the points buffers
 x <- 1:16
+buf_join_names <- paste0("Bin",x,"_buf","shp_join") 
 shp_join_names <- paste0("Bin",x,"point_buf_join")
-# buf_join_names
-# data_join_names
 
 for(n in 1:length(buf_join_names)){
   y <- get(buf_join_names[n])@data %>% 
@@ -126,15 +172,14 @@ for(n in 1:length(buf_join_names)){
 
 #write bin#point_buf_join polygons out
 #field names exported for use in RF_Van script
+
+shp.path <- "E:\\MetroVancouverData\\Training_Validation_Points\\Bufs_joined"
 for (n in 1:length(shp_join_names)){
-  writeOGR(get(shp_join_names[n]),shp.path,shp_join_names[n],driver = "ESRI Shapefile")
+  writeOGR(get(shp_join_names[n]),shp.path,shp_join_names[n],driver = "ESRI Shapefile", overwrite_layer = TRUE)
   fieldnames <- as.data.frame(names(get(shp_join_names[n])))
   write_csv(fieldnames,paste0(shp.path,"\\",shp_join_names[n],"fieldnames.csv"),na = "NA",col_names = FALSE)
 }
 
 
-#repeat for extra points
-
-
-
+#repeat for extra points (Bin 17)
 
