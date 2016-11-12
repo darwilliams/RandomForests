@@ -290,6 +290,11 @@ points.short@data[,5] <- gsub(
   pattern = "Shrub", 
   replacement = "Trees")
 
+points.short@data[,5] <- gsub(
+  x = points.short@data[,5], 
+  pattern = "SHrub", 
+  replacement = "Trees")
+
 # check to make sure there aren't any more unique values you missed
 unique(points.short@data[,5])
 
@@ -309,6 +314,11 @@ points.short@data[,11] <- gsub(
 points.short@data[,11] <- gsub(
   x = points.short@data[,11], 
   pattern = "Shrub", 
+  replacement = "Trees")
+
+points.short@data[,11] <- gsub(
+  x = points.short@data[,5], 
+  pattern = "SHrub", 
   replacement = "Trees")
 
 unique(points.short@data[,11])

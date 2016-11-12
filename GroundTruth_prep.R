@@ -46,7 +46,7 @@ for (n in 1:length(filenames)){
 }
 
 #Read shp files of points
-shp.path <- "E:\\MetroVancouverData\\Training_Validation_Points"
+shp.path <- "E:\\MetroVancouverData\\Training_Validation_Points\\Points"
 x <- 1:15
 shpnames <- paste0("Bin",x,"shp")
 

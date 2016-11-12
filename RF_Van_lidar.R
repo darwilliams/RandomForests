@@ -6,9 +6,6 @@ print(start.message)
 
 setwd("D:\\RandomForests")
 
-## I ADDED THIS LINE AND I WANT TO KEEP IT
-
-
 #### LOAD PACKAGES ----------------------------------------------------------
 
 list.of.packages <- c("caret",
@@ -33,13 +30,34 @@ list.of.packages <- c("caret",
                       "doParallel", 
                       "foreach",
                       "data.table",
-                      "tidyverse"
+                      "tidyverse",
+                      "stringr"
 )
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   ## named vector members whose name is "Package"
 if(length(new.packages)) install.packages(new.packages)   ## install only unavailable packages
 for (pack in list.of.packages){
   library(pack, character.only=TRUE)  ## call all the packages in list.of.packages
 }
+
+#### Set up file paths and object names ----------------------------------------------------------------------------------------
+
+base.dir <- "E:/MetroVancouverData"    ## base working directory
+objects.data.dir <- file.path(base.dir, "eCog_output/LiDAR_areas/", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
+points.data.dir <- file.path(base.dir, "Training_Validation_Points/", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
+results.dir <- file.path(base.dir, "eCog_output/LiDAR_areas/LiDAR_Results", fsep = .Platform$file.sep)   ## results directory (outputs go here)
+dir.create(results.dir)
+figures.dir <- file.path(base.dir, "eCog_output/LiDAR_areas/LiDAR_Figures", fsep = .Platform$file.sep)   ## figures directory (figures go here)
+dir.create(figures.dir)
+
+# temp.dir <- file.path(data.dir, "temp")  ## directory for temporary files like the segmentation shps (overwritten each time)
+# if (!file.exists(temp.dir)) {dir.create(temp.dir, showWarnings=F, recursive=T)}  ## create it
+
+#create list of object names
+source("shplist.R")
+shplist(objects.data.dir)
+objectslist <- str_subset(shplist$V1, "unclas")
+objects.filename <- str_replace(objectslist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/",replacement = "")
+objects.filename <- str_replace(objects.filename,pattern = ".shp",replacement = "")
 
 #### PARAMETERS ---------------------------------------------
 
@@ -49,13 +67,13 @@ params <- list()
 ## General
 params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$run.ShpRead <- F # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
+params$run.ShpRead <- T # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
 ## list of all starting predictors 
 params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
                                 "Mean_Blue", "Mean_Green", "Mean_Red","Mean_RE","Mean_NIR","NDRE", 
                                 "NDVI", "NDVIRE","NIR_div_RE","SAVI","sd_red", 
                                 "sd_blue","sd_green", "sd_RE", "sd_NIR")
-params$predictors.LiDAR <- c("CoefVar_nD", "GLCMCon_nDSM", "GLCMHom_nDSM", 
+params$predictors.LiDAR <- c("CoefVar_nDSM", "GLCMCon_nDSM", "GLCMHom_nDSM", 
                              "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
                              "sd_ndsm", "sd_slope", "sd_zdev") 
 params$predictors.geometric <-  c("Border_ind", "Compactnes", "Density", "EllipticFi",
@@ -64,9 +82,7 @@ params$predictors.geometric <-  c("Border_ind", "Compactnes", "Density", "Ellipt
 
 params$predictors.all <- c(params$predictors.spectral,params$predictors.LiDAR,params$predictors.geometric)                                                                    
 
-#### GIONA ####
-params$tile.names <- c("Vancouver_Downtown", "Surrey", etc.........)
-#### GIONA ####
+params$tile.names <- objects.filename
 
 ## RF
 params$nfold <- 4
@@ -78,7 +94,7 @@ params$nodesize <- 1   ## RF nodesize: default for classification is 1
 params$plot.importance <- F  ## whether to plot RF variable importance
 params$prediction.maps <- T
 
-base.dir <- 'D:/RandomForests'    ## base working directory
+
 
 #### FUNCTIONS ----------------------------------------------------------
 
@@ -105,15 +121,6 @@ classif.metrics <- function(predicted, observed) {
 
 tic <- proc.time() ## start clocking global time
 
-data.dir <- file.path(base.dir, "Data", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
-dir.create(data.dir)
-results.dir <- file.path(base.dir, "Results", fsep = .Platform$file.sep)   ## results directory (outputs go here)
-dir.create(results.dir)
-figures.dir <- file.path(base.dir, "Figures", fsep = .Platform$file.sep)   ## figures directory (figures go here)
-dir.create(figures.dir)
-# temp.dir <- file.path(data.dir, "temp")  ## directory for temporary files like the segmentation shps (overwritten each time)
-# if (!file.exists(temp.dir)) {dir.create(temp.dir, showWarnings=F, recursive=T)}  ## create it
-
 #### GIONA ####
 # nr.clusters <- length(params$tile.names)  ## to uncomment when running in parallel, after successful debugging
 # cl <- makeCluster(nr.clusters)
@@ -126,15 +133,23 @@ for (tile.idx in 1:length(params$tile.names)) {
 ## STILL TO INCLUDE
 sprintf("%s", tile.name)
 
-points.filename <- "VanSubsetPoints_Buffer_SJ_unambig"
-points.folder <- "Vancouver/shp"
-objects.filename <- "Vancouver_unclassified_final_v9"
-objects.folder <- "Vancouver/shp"
+# points.filename <- "VanSubsetPoints_Buffer_SJ_unambig"
+# points.folder <- "Vancouver/shp"
+# objects.filename <- "Vancouver_unclassified_final_v9"
+# objects.folder <- "Vancouver/shp"
 #### GIONA ####
 
 # set up data directories
-objects.path <- file.path(data.dir, objects.folder, fsep = .Platform$file.sep) 
-points.path <- file.path(data.dir, points.folder, fsep = .Platform$file.sep)
+objects.path <- objects.data.dir 
+points.path <- points.data.dir
+
+#create list of ground truth data names
+source("shplist.R")
+shplist(points.data.dir)
+shplist 
+pointlist <- str_subset(shplist$V1, "buf_join|SJ.shp$")
+points.filename <- str_replace(pointlist,pattern = "E:/MetroVancouverData/Training_Validation_Points/",replacement = "")
+
 
 if(params$run.ShpRead){
 
