@@ -1,4 +1,6 @@
 #Intersect points buffers with image objects from LiDAR coverage areas
+#updated to include Van subset points as Bin 16
+
 
 #### Load Package ######
 list.of.packages <- c("caret",
@@ -36,7 +38,7 @@ for (pack in list.of.packages){
 
 # Read data tables
 table.path <- "C:\\Users\\darwil.stu\\Documents\\Accuracy Assessment\\"
-x <- 1:15
+x <- 1:16
 filenames<- paste0("Bin",x)
 
 for (n in 1:length(filenames)){
@@ -47,7 +49,7 @@ for (n in 1:length(filenames)){
 
 #Read shp files of points
 shp.path <- "E:\\MetroVancouverData\\Training_Validation_Points\\Points"
-x <- 1:15
+x <- 1:16
 shpnames <- paste0("Bin",x,"shp")
 
 for (n in 1:length(filenames)){
@@ -57,7 +59,7 @@ for (n in 1:length(filenames)){
 }
 
 #Read in buffer shp files
-x <- 1:15
+x <- 1:16
 bufnames <- paste0("Bin",x,"_buf")
 bufshpnames <- paste0("Bin",x,"_buf","shp")
 for (n in 1:length(bufnames)){
@@ -67,7 +69,7 @@ for (n in 1:length(bufnames)){
 }
 
 #join the csvs to the points
-x <- 1:15
+x <- 1:16
 data_join_names <- paste0("Bin",x,"shp_csvJoin")
 # shpnames
 # filenames
@@ -83,7 +85,7 @@ for(n in 1:length(filenames)){
 }
 
 #create PointID variable for buffer polygons from ORIG_FID variable
-x <- 1:15
+x <- 1:16
 buf_join_names <- paste0("Bin",x,"_buf","shp_join") 
   
 for(n in 1:length(bufshpnames)){
@@ -97,7 +99,7 @@ for(n in 1:length(bufshpnames)){
 }
 
 #join the expanded points data to the points buffers
-x <- 1:15
+x <- 1:16
 shp_join_names <- paste0("Bin",x,"point_buf_join")
 # buf_join_names
 # data_join_names
@@ -113,7 +115,7 @@ for(n in 1:length(buf_join_names)){
 }
 
 # #do spatial join for points and polygons
-# x <- 1:15
+# x <- 1:16
 # sjnames <- paste0("Bin",x,"_SJ")
 # n <- 1
 # for (n in 1: length(data_join_names)){
