@@ -51,26 +51,40 @@ names(points.raw) <- new_names$X1
 
 # drop previous spatial join info
 names(points.raw)
-drops2 <- c("CID.x","ORIG_FID","Shape_Leng","distance","PointID","CID.y","coords.x1","coords.x2")
+drops2 <- c("CID.x","ORIG_FID","Shape_Leng","distance","CID.y","coords.x1","coords.x2")
 points.raw.short <- points.raw[,!(names(points.raw) %in% drops2)]
 names(points.raw.short)
+head(points.raw.short@data)
 
 # remove NA rows
-points.raw.short@data$Onem_Class_2_1st_choice
-indices <- !is.na(points.raw.short@data$Onem_Class_2_1st_choice)
+indices <- !is.na(points.raw.short@data$One_m_Class_1_1st_choice)
 indices
 points.short <- (points.raw.short[which(indices),])
-dim((points.raw.short)) #should be 400 or 0-399
-dim((points.short)) #should be less #hooray
-points.short@data$Onem_Class_2_1st_choice
+dim((points.raw.short))#should be 7506
+dim((points.short)) #should be equal for Class 1
+
 
 #fix any mispelled class names for the ground truth points 
-# choose the columns you want to use
-change <- grep("Class_2", names(points.short))
-change #use columns 5 and 11
+
+#the fact that the attribute table data are imported as factors is raelly helpful
+#I can see all the different permutations of the same entries in the dataset
+summary(points.short)
+levels(points.short@data$One_m_Class_1_1st_choice)
+levels(points.short@data$One_m_Class_2_1st_choice)
+levels(points.short@data$One_m_Class_3_1st_choice)
+
+levels(points.short@data$One_m_Class_1_2nd_choice)
+levels(points.short@data$One_m_Class_2_2nd_choice)
+levels(points.short@data$One_m_Class_3_2nd_choice)
+
 
 # figure out which unique values you have
-unique(points.short@data[,5])
+unique(points.short@data$One_m_Class_1_1st_choice)
+
+points.short@data$One_m_Class_1_1st_choice %>% 
+  gsub(pattern = "bare", replacement = "Bare")
+
+
 
 points.short@data[,5] <- gsub(
   x = points.short@data[,5], 
