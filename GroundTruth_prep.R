@@ -26,7 +26,8 @@ list.of.packages <- c("caret",
                       "foreach",
                       "data.table",
                       "tidyverse",
-                      "forcats"
+                      "forcats",
+                      "stringr"
 )
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   ## named vector members whose name is "Package"
 if(length(new.packages)) install.packages(new.packages)   ## install only unavailable packages
@@ -159,6 +160,20 @@ for(n in 1:length(buf_join_names)){
   rm(y)
   rm(z)
 }
+
+#add a column labelling the bin the buffers come from
+x <- 1:16
+binnames <- as.numeric(str_replace(filenames,pattern = "Bin",replacement = "")) 
+for(n in 1:length(shp_join_names)){
+  y <- get(shp_join_names[n])@data %>% 
+    mutate(Bin = binnames[n])
+  z <- get(shp_join_names[n])
+  z@data <- y
+  assign(shp_join_names[n],z)
+  rm(y)
+  rm(z)
+}
+
 
 # #do spatial join for points and polygons
 # x <- 1:16
