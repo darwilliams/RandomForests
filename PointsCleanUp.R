@@ -35,8 +35,6 @@ for (pack in list.of.packages){
 }
 
 
-
-
 #### Read in Data ##### 
 
 points.path <- "E:\\MetroVancouverData\\Training_Validation_Points"
@@ -576,7 +574,7 @@ points.short@data$Five_m_Class_2_1st_choice <- points.short@data$Five_m_Class_2_
 points.short@data$Five_m_Class_2_1st_choice <- as.factor(points.short@data$Five_m_Class_2_1st_choice)
 levels(points.short@data$Five_m_Class_2_1st_choice)
 
-#### For all 1st choice shrub entries, assign shrub to Class 3 and turn Class 2 shrubs into "Trees"
+#### For all 1st choice shrub entries, assign shrub to Class 3 and turn Class 2 shrubs into "Trees" ####
 
 a <- points.short
 a <- which(a@data$One_m_Class_2_1st_choice == "Shrub")
@@ -650,6 +648,9 @@ points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_
   gsub(pattern = "^Linear_Paved_", replacement = "Linear_paved")
 
 points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
+  gsub(pattern = "^Linear_paved_", replacement = "Linear_paved")
+
+points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
   gsub(pattern = "linear_unpaved", replacement = "Linear_unpaved")
 
 points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
@@ -672,6 +673,9 @@ points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_
 
 points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
   gsub(pattern = "Modified_Barren", replacement = "Modified_barren")
+
+points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
+  gsub(pattern = "Barren_Modified", replacement = "Modified_barren")
 
 points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
   gsub(pattern = "Modifeid_G-H", replacement = "Modified_G-H")
@@ -731,6 +735,9 @@ points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_
   gsub(pattern = "Naural_Barren", replacement = "Natural_barren")
 
 points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
+  gsub(pattern = "Natural_barrenn", replacement = "Natural_barren")
+
+points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
   gsub(pattern = "Non-linear_Paved", replacement = "Non-linear_paved")
 
 points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
@@ -751,11 +758,15 @@ points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_
 points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
   gsub(pattern = "Linear_paved_elev", replacement = "Linear_paved_elevated")
 
-#to check
-"Linear"
-"Non-linear"
+points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
+  gsub(pattern = "Linear_pavedelev", replacement = "Linear_paved_elevated")
 
-"Non-linear"
+#to check
+# "Linear"
+# "Non-linear"
+#"Water"
+
+#"Non-linear"
 a <- points.short
 a <- which(a@data$Five_m_Class_3_1st_choice == "Non-linear")
 points.short@data[a,]
@@ -763,18 +774,34 @@ points.short@data[a,]
 points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
   gsub(pattern = "^Non-linear$", replacement = "Non-linear_paved")
 
-"Linear"
+#"Linear"
 a <- points.short
-a <- which(a@data$Five_m_Class_3_1st_choice == "Non-linear")
+a <- which(a@data$Five_m_Class_3_1st_choice == "Linear")
 points.short@data[a,]
 
+points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
+  gsub(pattern = "^Linear$", replacement = "Linear_paved")
+
+#"Water"
+a <- points.short
+a <- which(a@data$Five_m_Class_3_1st_choice == "Water")
+points.short@data[a,]
+
+points.short@data$Five_m_Class1_2nd_choice[a] <- "Water"
+points.short@data$Five_m_Class_2_1st_choice[a] <- NA
+points.short@data$Five_m_Class_2_2nd_choice[a] <- "Water"
+points.short@data$Five_m_Class_3_1st_choice[a] <- NA
 
 
 unique(points.short@data$Five_m_Class_3_1st_choice)
 points.short@data$Five_m_Class_3_1st_choice <- as.factor(points.short@data$Five_m_Class_3_1st_choice)
 levels(points.short@data$Five_m_Class_3_1st_choice)
 
+#### 2nd choice variables #### 
 
+#### One_m_Class_1_2nd_choice ####
+
+unique(points.short@data$One_m_Class_1_2nd_choice)
 
 
 
