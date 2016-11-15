@@ -77,10 +77,6 @@ levels(points.short@data$One_m_Class_1_1st_choice)
 levels(points.short@data$One_m_Class_2_1st_choice)
 levels(points.short@data$One_m_Class_3_1st_choice)
 
-levels(points.short@data$One_m_Class_1_2nd_choice)
-levels(points.short@data$One_m_Class_2_2nd_choice)
-levels(points.short@data$One_m_Class_3_2nd_choice)
-
 
 ##### ID unique values and tidy #####
 
@@ -596,25 +592,6 @@ head(points.short@data[a,])
 points.short@data$Five_m_Class_2_1st_choice[a] <- "Trees"
 head(points.short@data[a,])
 
-a <- points.short
-a <- which(a@data$One_m_Class_2_2nd_choice == "Shrub")
-points.short@data[a,]
-levels(points.short@data$One_m_Class_3_2nd_choice)
-points.short@data$One_m_Class_3_2nd_choice[a] <- "Shrub"
-points.short@data$One_m_Class_3_2nd_choice[a]
-head(points.short@data[a,])
-points.short@data$One_m_Class_2_2nd_choice[a] <- "Trees"
-head(points.short@data[a,])
-
-a <- points.short
-a <- which(a@data$Five_m_Class_2_2nd_choice == "Shrub")
-points.short@data[a,]
-levels(points.short@data$Five_m_Class_3_2nd_choice)
-points.short@data$Five_m_Class_3_2nd_choice[a] <- "Shrub"
-points.short@data$Five_m_Class_3_2nd_choice[a]
-head(points.short@data[a,])
-points.short@data$Five_m_Class_2_2nd_choice[a] <- "Trees"
-head(points.short@data[a,])
 
 #### Five_m_Class_3_1st_choice ####
 
@@ -802,58 +779,374 @@ levels(points.short@data$Five_m_Class_3_1st_choice)
 #### One_m_Class_1_2nd_choice ####
 
 unique(points.short@data$One_m_Class_1_2nd_choice)
+levels(points.short@data$One_m_Class_1_2nd_choice)
+
+a <- points.short
+a <- which(a@data$One_m_Class_1_2nd_choice == "`")
+points.short@data[a,]
+points.short@data$One_m_Class_1_2nd_choice[a] <- NA
+
+
+points.short@data$One_m_Class_1_2nd_choice <- points.short@data$One_m_Class_1_2nd_choice %>% 
+  gsub(pattern = "bare", replacement = "Bare")
+
+points.short@data$One_m_Class_1_2nd_choice <- points.short@data$One_m_Class_1_2nd_choice %>% 
+  gsub(pattern = "vegetation", replacement = "Vegetation")
+
+points.short@data$One_m_Class_1_2nd_choice <- points.short@data$One_m_Class_1_2nd_choice %>%
+  gsub(pattern = "^Veg$", replacement = "Vegetation")
+
+points.short@data$One_m_Class_1_2nd_choice <- points.short@data$One_m_Class_1_2nd_choice %>%
+  gsub(pattern = "shadow", replacement = "Shadow")
+
+points.short@data$One_m_Class_1_2nd_choice <- points.short@data$One_m_Class_1_2nd_choice %>%
+  gsub(pattern = "water", replacement = "Water")
+
+a <- points.short
+a <- which(a@data$One_m_Class_1_2nd_choice == "non-photosynthetic_veg")
+points.short@data[a,]
+levels(points.short@data$One_m_Class_2_2nd_choice)
+points.short@data$One_m_Class_2_2nd_choice[a] <- "Non-photosynthetic"
+points.short@data$One_m_Class_2_2nd_choice[a]
+points.short@data[a,]
+
+points.short@data$One_m_Class_1_2nd_choice <- points.short@data$One_m_Class_1_2nd_choice %>% 
+  gsub(pattern = "non-photosynthetic_veg", replacement = "Vegetation")
+
+points.short@data$One_m_Class_1_2nd_choice <- as.factor(points.short@data$One_m_Class_1_2nd_choice)
+
+
+#### One_m_Class_2_2nd_choice ####
+
+levels(points.short@data$One_m_Class_2_2nd_choice)
+
+points.short@data$One_m_Class_2_2nd_choice <- points.short@data$One_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Barren__", replacement = "Barren")
+
+points.short@data$One_m_Class_2_2nd_choice <- points.short@data$One_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Building", replacement = "Buildings")
+
+points.short@data$One_m_Class_2_2nd_choice <- points.short@data$One_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "grass-herb", replacement = "Grass-herb")
+
+points.short@data$One_m_Class_2_2nd_choice <- points.short@data$One_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Grass-Herb", replacement = "Grass-herb")
+
+points.short@data$One_m_Class_2_2nd_choice <- points.short@data$One_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Grass_herb", replacement = "Grass-herb")
+
+points.short@data$One_m_Class_2_2nd_choice <- points.short@data$One_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Non-photosythetic", replacement = "Non-photosynthetic")
+
+points.short@data$One_m_Class_2_2nd_choice <- points.short@data$One_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Non_photosynthetic", replacement = "Non-photosynthetic")
+
+points.short@data$One_m_Class_2_2nd_choice <- points.short@data$One_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Other_Built", replacement = "Other_built")
+
+points.short@data$One_m_Class_2_2nd_choice <- points.short@data$One_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "soil", replacement = "Soil")
+
+points.short@data$One_m_Class_2_2nd_choice <- points.short@data$One_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Tree_Canopy", replacement = "Tree_canopy")
+
+points.short@data$One_m_Class_2_2nd_choice <- points.short@data$One_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Tree_canopy", replacement = "Trees")
+
+unique(points.short@data$One_m_Class_2_2nd_choice)
+
+points.short@data$One_m_Class_2_2nd_choice <- as.factor(points.short@data$One_m_Class_2_2nd_choice)
+
+levels(points.short@data$One_m_Class_2_2nd_choice)
+
+#### One_m_Class_3_2nd_choice ####
+levels(points.short@data$One_m_Class_3_2nd_choice)
+
+points.short@data$One_m_Class_3_2nd_choice <- points.short@data$One_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "deciduous", replacement = "Deciduous")
+
+points.short@data$One_m_Class_3_2nd_choice <- points.short@data$One_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "^Linear_Paved", replacement = "Linear_paved")
+
+points.short@data$One_m_Class_3_2nd_choice <- points.short@data$One_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Unpaved_linear", replacement = "Linear_unpaved")
+
+points.short@data$One_m_Class_3_2nd_choice <- points.short@data$One_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Modified_Barren", replacement = "Modified_barren")
+
+points.short@data$One_m_Class_3_2nd_choice <- points.short@data$One_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "modified_grass-herb", replacement = "Modified_G-H")
+
+points.short@data$One_m_Class_3_2nd_choice <- points.short@data$One_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "modified_soil", replacement = "Modified_soil")
+
+points.short@data$One_m_Class_3_2nd_choice <- points.short@data$One_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Modified_Soil", replacement = "Modified_soil")
+
+points.short@data$One_m_Class_3_2nd_choice <- points.short@data$One_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Non-linear_Paved", replacement = "Non-linear_paved")
+
+points.short@data$One_m_Class_3_2nd_choice <- as.factor(points.short@data$One_m_Class_3_2nd_choice)
+
+#### Five_m_Class1_2nd_choice ####
+levels(points.short@data$Five_m_Class1_2nd_choice)
+
+points.short@data$Five_m_Class1_2nd_choice <- points.short@data$Five_m_Class1_2nd_choice %>% 
+  gsub(pattern = "bare", replacement = "Bare")
+
+points.short@data$Five_m_Class1_2nd_choice <- points.short@data$Five_m_Class1_2nd_choice %>% 
+  gsub(pattern = "BAre", replacement = "Bare")
+
+points.short@data$Five_m_Class1_2nd_choice <- points.short@data$Five_m_Class1_2nd_choice %>% 
+  gsub(pattern = "Bare_", replacement = "Bare")
+
+points.short@data$Five_m_Class1_2nd_choice <- points.short@data$Five_m_Class1_2nd_choice %>% 
+  gsub(pattern = "built-up", replacement = "Built-up")
+
+points.short@data$Five_m_Class1_2nd_choice <- points.short@data$Five_m_Class1_2nd_choice %>% 
+  gsub(pattern = "Built_up", replacement = "Built-up")
+
+points.short@data$Five_m_Class1_2nd_choice <- points.short@data$Five_m_Class1_2nd_choice %>%
+  gsub(pattern = "^Clouds$", replacement = "Clouds/Ice")
+
+points.short@data$Five_m_Class1_2nd_choice <- points.short@data$Five_m_Class1_2nd_choice %>%
+  gsub(pattern = "^veg$", replacement = "Vegetation")
+
+points.short@data$Five_m_Class1_2nd_choice <- points.short@data$Five_m_Class1_2nd_choice %>%
+  gsub(pattern = "^Veg$", replacement = "Vegetation")
+
+points.short@data$Five_m_Class1_2nd_choice <- points.short@data$Five_m_Class1_2nd_choice %>% 
+  gsub(pattern = "Vegatation", replacement = "Vegetation")
+
+points.short@data$Five_m_Class1_2nd_choice <- points.short@data$Five_m_Class1_2nd_choice %>% 
+  gsub(pattern = "vegetation", replacement = "Vegetation")
+
+
+points.short@data$Five_m_Class1_2nd_choice <- points.short@data$Five_m_Class1_2nd_choice %>%
+  gsub(pattern = "shadow", replacement = "Shadow")
+
+
+#to check
+# "Barren"
+# "Grass-Herb"
+# "non-photosynthetic_veg"
+
+# "Barren"
+a <- points.short
+a <- which(a@data$Five_m_Class1_2nd_choice == "Barren")
+points.short@data[a,]
+points.short@data$Five_m_Class1_2nd_choice[a] <- "Bare"
+points.short@data[a,]
+
+#"Grass-Herb"
+a <- points.short
+a <- which(a@data$Five_m_Class1_2nd_choice == "Grass-Herb")
+points.short@data[a,]
+points.short@data$Five_m_Class1_2nd_choice[a] <- "Vegetation"
+points.short@data$Five_m_Class_2_2nd_choice[a] <- "Grass-herb"
+points.short@data$Five_m_Class_3_2nd_choice[a] <- "Modified_G-H"
+
+# "non-photosynthetic_veg"
+a <- points.short
+a <- which(a@data$Five_m_Class1_2nd_choice == "non-photosynthetic_veg")
+points.short@data[a,]
+levels(points.short@data$Five_m_Class_2_2nd_choice)
+points.short@data$Five_m_Class1_2nd_choice[a] <- "Vegetation"
+points.short@data$Five_m_Class_2_2nd_choice[a] <- "Non-photosynthetic"
+
+unique(points.short@data$Five_m_Class1_2nd_choice)
+
+points.short@data$Five_m_Class1_2nd_choice <- as.factor(points.short@data$Five_m_Class1_2nd_choice)
+
+#### Five_m_Class_2_2nd_choice ####
+levels(points.short@data$Five_m_Class_2_2nd_choice)
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "barren", replacement = "Barren")
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Building", replacement = "Buildings")
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "grass-herb", replacement = "Grass-herb")
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Grass-Herb", replacement = "Grass-herb")
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "^pav$", replacement = "Paved")
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "paved", replacement = "Paved")
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "shrub", replacement = "Shrub")
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Shrubs", replacement = "Shrub")
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "soil", replacement = "Soil")
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "tree_canopy", replacement = "Trees")
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Tree_canopy", replacement = "Trees")
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Tree_Canopy", replacement = "Trees")
+
+points.short@data$Five_m_Class_2_2nd_choice <- points.short@data$Five_m_Class_2_2nd_choice %>% 
+  gsub(pattern = "Tree_Canopy_", replacement = "Trees")
+
+#to check
+"_" 
+"p"
+
+a <- points.short
+a <- which(a@data$Five_m_Class_2_2nd_choice == "_")
+points.short@data[a,]
+points.short@data$Five_m_Class_2_2nd_choice[a] <- NA
+
+a <- points.short
+a <- which(a@data$Five_m_Class_2_2nd_choice == "p")
+points.short@data[a,]
+points.short@data$Five_m_Class_2_2nd_choice[a] <- "Paved"
+
+points.short@data$Five_m_Class_2_2nd_choice <- as.factor(points.short@data$Five_m_Class_2_2nd_choice)
+levels(points.short@data$Five_m_Class_2_2nd_choice)
+
+#### For all 2nd choice shrub entries, assign shrub to Class 3 and turn Class 2 shrubs into "Trees" ####
+
+a <- points.short
+a <- which(a@data$One_m_Class_2_2nd_choice == "Shrub")
+points.short@data[a,]
+levels(points.short@data$One_m_Class_3_2nd_choice)
+points.short@data$One_m_Class_3_2nd_choice <- as.character(points.short@data$One_m_Class_3_2nd_choice)
+points.short@data$One_m_Class_3_2nd_choice[a] <- "Shrub"
+points.short@data$One_m_Class_3_2nd_choice[a]
+head(points.short@data[a,])
+points.short@data$One_m_Class_2_2nd_choice[a] <- "Trees"
+head(points.short@data[a,])
+points.short@data$One_m_Class_3_2nd_choice <- as.factor(points.short@data$One_m_Class_3_2nd_choice)
+
+a <- points.short
+a <- which(a@data$Five_m_Class_2_2nd_choice == "Shrub")
+points.short@data[a,]
+levels(points.short@data$Five_m_Class_3_2nd_choice)
+points.short@data$Five_m_Class_3_2nd_choice <- as.character(points.short@data$Five_m_Class_3_2nd_choice)
+points.short@data$Five_m_Class_3_2nd_choice[a] <- "Shrub"
+points.short@data$Five_m_Class_3_2nd_choice[a]
+head(points.short@data[a,])
+points.short@data$Five_m_Class_2_2nd_choice[a] <- "Trees"
+head(points.short@data[a,])
+points.short@data$Five_m_Class_3_2nd_choice <- as.factor(points.short@data$Five_m_Class_3_2nd_choice)
+
+#### Five_m_Class_3_2nd_choice ####
+levels(points.short@data$Five_m_Class_3_2nd_choice)
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Conifeous", replacement = "Coniferous")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Deciduosu", replacement = "Deciduous")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "deciduous", replacement = "Deciduous")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "^linear_paved", replacement = "Linear_paved")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "^Linear_Paved", replacement = "Linear_paved")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "linear_unpaved", replacement = "Linear_unpaved")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Paved_Linear", replacement = "Linear_unpaved")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "unpaved_linear", replacement = "Linear_unpaved")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "unPaved_linear", replacement = "Linear_unpaved")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Unpaved_linear", replacement = "Linear_unpaved")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Unpaved_Linear", replacement = "Linear_unpaved")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "unpaved_Linear", replacement = "Linear_unpaved")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Modifeid_G-H", replacement = "Modified_G-H")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Modified_G-H", replacement = "Modified_G-H")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Modified_G_H", replacement = "Modified_G-H")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "modified_grass-herb", replacement = "Modified_G-H")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Modified_grass-herb", replacement = "Modified_G-H")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Modifies_G-H", replacement = "Modified_G-H")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Modifid_soil", replacement = "Modified_soil")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "modified_soil", replacement = "Modified_soil")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Modified_Soil", replacement = "Modified_soil")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Modfied_Barren", replacement = "Modified_barren")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Natural_Barern", replacement = "Natural_barren")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Natural_Barern", replacement = "Natural_barren")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Natural_Barren", replacement = "Natural_barren")
+
+points.short@data$Five_m_Class_3_2nd_choice <- points.short@data$Five_m_Class_3_2nd_choice %>% 
+  gsub(pattern = "Non-linear_Paved", replacement = "Non-linear_paved")
+
+points.short@data$Five_m_Class_3_2nd_choice <- as.factor(points.short@data$Five_m_Class_3_2nd_choice)
+
+#remove classifier notes column
+points.short@data$Classifier_notes <- NULL
+
+
+##### write out cleaned up points #### 
+points.path <- "E:\\MetroVancouverData\\Training_Validation_Points"
+points.filename <- "MetroVan_gt_Bins1_16_tidy"
+points_variables <- as.data.frame(names(points.short))
+write_csv(points_variables,paste0(points.path,"\\points_variables_tidy.csv"),col_names = FALSE)
+writeOGR(points.short, points.path, points.filename, driver="ESRI Shapefile", overwrite_layer=TRUE) 
+
+
+#### END ####
 
 
 
-points.short@data[,5] <- gsub(
-  x = points.short@data[,5], 
-  pattern = "Grass_Herb", 
-  replacement = "Grass-Herb")
 
-points.short@data[,5] <- gsub(
-  x = points.short@data[,5], 
-  pattern = "Tree_Canopy", 
-  replacement = "Trees")
 
-points.short@data[,5] <- gsub(
-  x = points.short@data[,5], 
-  pattern = "Shrub", 
-  replacement = "Trees")
 
-points.short@data[,5] <- gsub(
-  x = points.short@data[,5], 
-  pattern = "SHrub", 
-  replacement = "Trees")
 
-# check to make sure there aren't any more unique values you missed
-unique(points.short@data[,5])
-
-# now for row 13
-unique(points.short@data[,11])
-
-points.short@data[,11] <- gsub(
-  x = points.short@data[,11], 
-  pattern = "tree_canopy", 
-  replacement = "Trees")
-
-points.short@data[,11] <- gsub(
-  x = points.short@data[,11], 
-  pattern = "tree_Canopy", 
-  replacement = "Trees")
-
-points.short@data[,11] <- gsub(
-  x = points.short@data[,11], 
-  pattern = "Shrub", 
-  replacement = "Trees")
-
-points.short@data[,11] <- gsub(
-  x = points.short@data[,5], 
-  pattern = "SHrub", 
-  replacement = "Trees")
-
-unique(points.short@data[,11])
-
-### checking to make sure points numbers are respected when filtering
+#### checking to make sure points numbers are respected when filtering
 # a <- points.short@data %>% 
 #   select(Point_Number,Shape_Area,Onem_Class_2_1st_choice)
 # a
@@ -884,5 +1177,4 @@ unique(points.short@data[,11])
 points.short@data %>% 
   select(Point_Number,Onem_Class_2_1st_choice)
 
-#write out cleaned up points
-writeOGR(points.short, points.path, sprintf("%s_%s", points.filename, tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
+ 
