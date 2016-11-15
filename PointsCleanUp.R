@@ -1138,6 +1138,19 @@ write_csv(points_variables,paste0(points.path,"\\points_variables_tidy.csv"),col
 writeOGR(points.short, points.path, points.filename, driver="ESRI Shapefile", overwrite_layer=TRUE) 
 
 
+#### add column for points falling in urban landuse areas? ####
+
+# lu.path <- "E:\\MetroVancouverData\\LandUse"
+# lu.filename <- "LandUse2011"
+# lu <- readOGR(dsn=lu.path, layer=lu.filename) 
+# 
+# lu_unique <- unique(lu@data$LU_CodeDes)
+# built_up_lu <- lu_unique[c(3,5,7,8,10:23)]
+# 
+# keep <- lu@data %>% 
+#   filter(LU_CodeDes == built_up_lu)
+
+
 #### END ####
 
 
