@@ -1147,10 +1147,14 @@ writeOGR(points.short, points.path, points.filename, driver="ESRI Shapefile", ov
 # lu_unique <- unique(lu@data$LU_CodeDes)
 # built_up_lu <- lu_unique[c(3,5,7,8,10:23)]
 # 
-# keep <- lu@data %>% 
-#   filter(LU_CodeDes == built_up_lu)
+# points.lu <- over(points.short,lu)
+# str(points.lu)
+# points.lu <- points.lu[LU_CodeDes %in% built_up_lu,]
+# 
+# data.subset <- points.lu@data %>% 
+#   filter(LU_CodeDes %in% built_up_lu)
 
-
+points.short
 #### END ####
 
 
