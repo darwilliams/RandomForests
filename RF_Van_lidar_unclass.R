@@ -42,22 +42,25 @@ for (pack in list.of.packages){
 #### Set up file paths and object names ----------------------------------------------------------------------------------------
 
 base.dir <- "E:/MetroVancouverData"    ## base working directory
-objects.data.dir <- file.path(base.dir, "eCog_output/LiDAR_areas/", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
-points.data.dir <- file.path(base.dir, "Training_Validation_Points/", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
+objects.path <- file.path(base.dir, "eCog_output/LiDAR_areas/", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
+points.path <- file.path(base.dir, "Training_Validation_Points/", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
 results.dir <- file.path(base.dir, "eCog_output/LiDAR_areas/LiDAR_Results", fsep = .Platform$file.sep)   ## results directory (outputs go here)
 dir.create(results.dir)
 figures.dir <- file.path(base.dir, "eCog_output/LiDAR_areas/LiDAR_Figures", fsep = .Platform$file.sep)   ## figures directory (figures go here)
 dir.create(figures.dir)
 
-# temp.dir <- file.path(data.dir, "temp")  ## directory for temporary files like the segmentation shps (overwritten each time)
-# if (!file.exists(temp.dir)) {dir.create(temp.dir, showWarnings=F, recursive=T)}  ## create it
+temp.dir <- file.path(results.dir, "temp")  ## directory for temporary files like the segmentation shps (overwritten each time)
+if (!file.exists(temp.dir)) {dir.create(temp.dir, showWarnings=F, recursive=T)}  ## create it
 
 #create list of object names
 source("shplist.R")
 shplist(objects.data.dir)
 objectslist <- str_subset(shplist$V1, "unclas")
 objects.filename.list <- str_replace(objectslist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/",replacement = "")
-objects.filename.list <- str_replace(objects.filename,pattern = ".shp",replacement = "")
+objects.filename.list <- str_replace(objects.filename.list,pattern = ".shp",replacement = "")
+
+# set points filename
+points.filename <- "MetroVan_gt_Bins1_16_tidy"
 
 #### PARAMETERS ---------------------------------------------
 
@@ -85,10 +88,10 @@ params$predictors.all <- c(params$predictors.spectral,params$predictors.LiDAR,pa
 params$tile.names <- objects.filename.list
 
 ## RF
-params$nfold <- 4
+params$nfold <- 10
 params$seed <- 2016        ## seed to have same RF result
 params$parallel.RF <- T    ## whether to run RF in parallel or not
-params$ntree <- 100     ## RF nr of trees
+params$ntree <- 1000     ## RF nr of trees
 params$mtry <- 'sqrt_nr_var'  ## how to set RF mtry: 'sqrt_nr_var' or 'nr_var_div_3'
 params$nodesize <- 1   ## RF nodesize: default for classification is 1
 params$plot.importance <- F  ## whether to plot RF variable importance
@@ -121,52 +124,105 @@ classif.metrics <- function(predicted, observed) {
 
 tic <- proc.time() ## start clocking global time
 
+
+#### Read in points and fill na values in data table
+
 #read in cleaned up points
 points.clean <- readOGR(dsn=points.path, layer=points.filename) 
-points.filename <- str_replace(pointlist,pattern = "E:/MetroVancouverData/Training_Validation_Points/",replacement = "")
-objects.path <- objects.data.dir 
-points.path <- points.data.dir
 
 # change column names to be meaningful for points and objects
 names (points.clean)
-names (points.clean) [11:24]
-c <- c("Point_Number","Onem_Class_1_1st_choice","Onem_Class_1_2nd_choice","Onem_Class_2_1st_choice",
-       "Onem_Class_2_2nd_choice", "Onem_Class_3_1st_choice", "Onem_Class_3_2nd_choice",
-       "Fivem_Class1_1st_choice","Fivem_Class1_2nd_choice","Fivem_Class_2_1st_choice",
-       "Fivem_Class_2_2nd_choice","Fivem_Class_3_1st_choice","Fivem_Class_3_2nd_choice",
-       "Classifier_notes")
-names (points.clean) [11:24] <- c
+points.names <- read_csv(file.path(points.path,"points_variables_tidy.csv"),col_names = FALSE)
+names (points.clean) <- points.names$X1 
 names(points.clean)
 
-# drop previous spatial join info
-names(points.clean)
-drops2 <- c("Shape_Leng","distance","Join_Count", "TARGET_FID", "JOIN_FID", "CID", "ORIG_FID", "CID_1", "PointID")
-points.clean.short <- points.clean[,!(names(points.clean) %in% drops2)]
-names(points.clean.short)
+
+# fill na values
+
+#one_m
+head(points.clean@data)
+which(is.na(points.clean@data$One_m_Class_1_1st_choice)) #check for na's in row 1
+onem.class2.na.index <- which(is.na(points.clean@data$One_m_Class_2_1st_choice))
+points.clean@data$One_m_Class_1_1st_choice[onem.class2.na.index]
+
+#looks like a couple Built-up entries didn't get class 2 inputs
+points.clean@data[c(5450,5573),]
+points.clean@data$One_m_Class_2_1st_choice[c(5450,5573)] <- "Paved"
+points.clean@data[c(5450,5573),]
+
+#add shadow to class 2 and 3
+onem.class2.na.index <- which(is.na(points.clean@data$One_m_Class_2_1st_choice))
+onem.shadow.index <- which(points.clean@data$One_m_Class_1_1st_choice == "Shadow")
+points.clean@data[onem.shadow.index,]
+levels(points.clean@data$One_m_Class_2_1st_choice)
+points.clean@data$One_m_Class_2_1st_choice <- forcats::fct_expand(points.clean@data$One_m_Class_2_1st_choice, "Shadow")
+points.clean@data$One_m_Class_2_1st_choice[onem.shadow.index] <- "Shadow"
+levels(points.clean@data$One_m_Class_3_1st_choice)
+points.clean@data$One_m_Class_3_1st_choice <- forcats::fct_expand(points.clean@data$One_m_Class_3_1st_choice, "Shadow")
+points.clean@data$One_m_Class_3_1st_choice[onem.shadow.index] <- "Shadow"
+
+#add clouds/ice to class 2 and 3
+onem.cloudice.index <- which(points.clean@data$One_m_Class_1_1st_choice == "Clouds/Ice")
+points.clean@data[onem.cloudice.index,]
+levels(points.clean@data$One_m_Class_2_1st_choice)
+points.clean@data$One_m_Class_2_1st_choice <- forcats::fct_expand(points.clean@data$One_m_Class_2_1st_choice, "Clouds/Ice")
+points.clean@data$One_m_Class_2_1st_choice[onem.cloudice.index] <- "Clouds/Ice"
+levels(points.clean@data$One_m_Class_3_1st_choice)
+points.clean@data$One_m_Class_3_1st_choice <- forcats::fct_expand(points.clean@data$One_m_Class_3_1st_choice, "Clouds/Ice")
+points.clean@data$One_m_Class_3_1st_choice[onem.cloudice.index] <- "Clouds/Ice"
+
+#look at Bare w/ NAs
+points.clean@data[c(3717,3814),]
+points.clean@data$One_m_Class_2_1st_choice[c(3717,3814)] <- "Barren"
+points.clean@data$One_m_Class_2_2nd_choice[c(3717,3814)] <- NA
+points.clean@data$One_m_Class_3_1st_choice[c(3717,3814)] <- "Natural_barren"
+points.clean@data$One_m_Class_3_2nd_choice[c(3717,3814)] <- NA
+points.clean@data$Five_m_Class1_1st_choice[c(3717,3814)] <- "Bare"
+points.clean@data$Five_m_Class_2_1st_choice[c(3717,3814)] <- "Barren"
+points.clean@data$Five_m_Class_3_1st_choice[c(3717,3814)] <- "Natural_barren"
+points.clean@data$Five_m_Class_3_2nd_choice[c(3717,3814)] <- NA
+
+#look at Water w/ NAs
+points.clean@data[c(3757,3854),]
+points.clean@data$One_m_Class_2_1st_choice[c(3757,3854)] <- "Water"
+levels(points.clean@data$One_m_Class_3_1st_choice)
+points.clean@data$One_m_Class_3_1st_choice <- forcats::fct_expand(points.clean@data$One_m_Class_3_1st_choice, "Water")
+points.clean@data$One_m_Class_3_1st_choice[c(3757,3854)] <- "Water"
+
+#Class 3 na's
+which(is.na(points.clean@data$One_m_Class_3_1st_choice))
+onem.class3.na.index <- which(is.na(points.clean@data$One_m_Class_3_1st_choice))
+unique(points.clean@data$One_m_Class_2_1st_choice[onem.class3.na.index])
+
+#figure out what those trees are doing in there
+whichtrees <- which(points.clean@data$One_m_Class_2_1st_choice[onem.class3.na.index] == "Trees")
+onem.class3.na.index[whichtrees]
+points.clean@data[c(2543,3043),]
+points.clean@data$One_m_Class_3_1st_choice[c(2543,3043)] <- "Coniferous"
+points.clean@data$One_m_Class_3_2nd_choice[c(2543,3043)] <- NA
+
+#five_m
+which(is.na(points.clean@data$One_m_Class_1_1st_choice)) #check for na's in row 1
+onem.class2.na.index <- which(is.na(points.clean@data$One_m_Class_2_1st_choice))
+points.clean@data$One_m_Class_1_1st_choice[onem.class2.na.index]
+
+which(is.na(points.clean@data$Five_m_Class1_1st_choice))
 
 if(params$run.ShpRead){
 
-#### GIONA ####
+#### Set up parallel processing ####
 # nr.clusters <- length(params$tile.names)  ## to uncomment when running in parallel, after successful debugging
 # cl <- makeCluster(nr.clusters)
 # registerDoParallel(cl)
+  
+#### Clip input objects to nDSM boundaries ####  
 # foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {
   for (tile.idx in 1:length(params$tile.names)) {   
 
   	tile.name <- params$tile.names[tile.idx]
-    
-    # points.filename <- "VanSubsetPoints_Buffer_SJ_unambig"
-    # points.folder <- "Vancouver/shp"
-    # objects.filename <- "Vancouver_unclassified_final_v9"
-    # objects.folder <- "Vancouver/shp"
-    #### GIONA ####
-    
-    # set up data directories
-  	
-  
+
     ## read shapefiles
     objects.raw <- readOGR(dsn=objects.path, layer=tile.name) 
-    
     # clip artefacts away from unclassified object edge using lidar boundary
     nDSM_bound_direc <- "E:/MetroVancouverData/nDSM_boundaries"
     source("shplist.R")
@@ -175,23 +231,25 @@ if(params$run.ShpRead){
     # given tile name aaa_bbb select ndsm_bound that is partial string match
     pattern <- unlist(strsplit(tile.name, "_"))[1]
     boundary.file.name <- str_subset(nDSM_boundary_list$V1,pattern)
+    boundary.file.name <- str_replace(boundary.file.name,pattern = "E:/MetroVancouverData/nDSM_boundaries/",replacement = "")
+    boundary.file.name <- str_replace(boundary.file.name,pattern = ".shp",replacement = "")
     lidar_boundary <- readOGR(dsn = nDSM_bound_direc, layer = boundary.file.name)
-    plot(lidar_boundary)
     # now to clip using sp::over
     objects_backup <- objects.raw
     objects_clip <- objects_backup[lidar_boundary,] 
+    plot(objects_clip)
     
     #### Changing column names and data wrangling ----------------------------------------
     
-    # remove buildings, trees and other columns from objects_clip
+    # remove buildings, trees from objects_clip
     names(objects_clip)
-    drops <- c("Building","Trees","Len_divThi","Thick_pxl") ##### this will need to change ####
+    drops <- c("Building","Trees") ##### this will need to change ####
     objects_clip_short <- objects_clip[,!(names(objects_clip) %in% drops)]
     names(objects_clip_short)
     # use names from objects_table to rename objects.raw attribute table
     
     #read in data
-    objects_table <- fread("D:\\RandomForests\\Data\\Vancouver\\shp\\Vancouver_unclassified_final_v9.txt") #read in data table
+    objects_table <- fread("D:\\RandomForests\\LidarObjectFeatureNames.csv") #read in data table
     
     # compare names of objects_table to objects_clip_short
     names(objects_clip_short)
@@ -282,7 +340,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 
 		tile.name <- params$tile.names[tile.idx]
 
-		objects_clip_short <- readOGR(dsn =objects.path, layer =sprintf("unclass_objects_clip_%s", tile.name)
+		objects_clip_short <- readOGR(dsn =objects.path, layer =sprintf("unclass_objects_clip_%s", tile.name))
 
 		##### ensure object variable names match parameter names ####################
 		new_names <- read_csv(file = paste0(objects.path,"/object_names.csv")) #col_names = c("row","names")
@@ -420,7 +478,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   
   			tile.name <- params$tile.names[tile.idx]
   
-  			objects_clip_short <- readOGR(dsn =objects.path, layer =sprintf("unclass_objects_clip_%s", tile.name)
+  			objects_clip_short <- readOGR(dsn =objects.path, layer =sprintf("unclass_objects_clip_%s", tile.name))
   
   			if (sum(is.infinite(objects_clip_short@data$CoefVar_nD)) >= 1){
   			objects_clip_short@data$CoefVar_nD <- replace(objects_clip_short@data$CoefVar_nD, 
@@ -443,7 +501,6 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   			writeOGR(objects.map, results.dir, sprintf("Prediction_map_%s_%s_%s", gt.type, pred.type, tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
   			
   		}
-  		#### GIONA ####
 	  
     }  ## end if params$prediction.maps
 
@@ -454,7 +511,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 RES.file = file.path(results.dir, 'RESULTS_LiDAR.Rdata', fsep = .Platform$file.sep) 
 save(RES, file = RES.file)
 #Dave dislikes this Rdata file, so I'm going to use rds instead
-saveRDS(RES, paste0(results.dir,"/results_van.RDS"))
+saveRDS(RES, paste0(results.dir,"/results_LiDAR.RDS"))
 
 
 #### PRINT LOGS ---------------------------------------------------------
