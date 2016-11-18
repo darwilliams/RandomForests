@@ -1336,35 +1336,5 @@ writeOGR(points.clean, points.path, points.filename, driver="ESRI Shapefile", ov
 
 
 
-#### checking to make sure points numbers are respected when filtering
-# a <- points.short@data %>% 
-#   select(Point_Number,Shape_Area,Onem_Class_2_1st_choice)
-# a
-# 
-# b <- points.short@data %>% 
-#   select(Point_Number,Shape_Area,Onem_Class_2_1st_choice) %>% 
-#   filter(!(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
-# b  
-# 
-# length(a[,2])
-# length(b[,2])
-# 
-# a[,1] %in% b[,1]
-# a[,2] %in% b[,2]
-# 
-# head(a,15)
-# head(b)
-# tail(a,15)
-# tail(b)
-# 
-# filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
-
-#remove building or tree points
-# points.short@data <- filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
-# unique(points.short@data[,5])
-# unique(points.short@data[,11])
-# 
-# points.short@data %>% 
-#   select(Point_Number,Onem_Class_2_1st_choice)
 
  

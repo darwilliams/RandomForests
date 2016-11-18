@@ -43,6 +43,7 @@ for (pack in list.of.packages){
 
 base.dir <- "E:/MetroVancouverData"    ## base working directory
 objects.path <- file.path(base.dir, "eCog_output/LiDAR_areas/", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
+objects.tmp.path <- "E:\\MetroVancouverData\\eCog_output\\LiDAR_areas\\LiDAR_Results\\temp"
 points.path <- file.path(base.dir, "Training_Validation_Points/", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
 results.dir <- file.path(base.dir, "eCog_output/LiDAR_areas/LiDAR_Results", fsep = .Platform$file.sep)   ## results directory (outputs go here)
 dir.create(results.dir)
@@ -98,7 +99,8 @@ params$nodesize <- 1   ## RF nodesize: default for classification is 1
 params$plot.importance <- F  ## whether to plot RF variable importance
 params$prediction.maps <- T
 
-
+## Parallel Processing clusters
+params$nr.clusters <- 22
 
 #### FUNCTIONS ----------------------------------------------------------
 
@@ -141,18 +143,20 @@ names(points.clean)
 if(params$run.ShpRead){
 
 #### Set up parallel processing ####
-# nr.clusters <- length(params$tile.names)  ## to uncomment when running in parallel, after successful debugging
-# cl <- makeCluster(nr.clusters)
-# registerDoParallel(cl)
+cl <- makeCluster(params$nr.clusters) ## to uncomment when running in parallel, after successful debugging
+registerDoParallel(cl)
   
 #### Clip input objects to nDSM boundaries ####  
-# foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {
-  for (tile.idx in 1:length(params$tile.names)) {   
+  foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {
+  # for (tile.idx in 1:length(params$tile.names)) {   
 
   	tile.name <- params$tile.names[tile.idx]
 
     ## read shapefiles
-    objects.raw <- readOGR(dsn=objects.path, layer=tile.name) 
+    objects.raw <- readOGR(dsn=objects.path, layer=tile.name)
+    if(is.na(sp::is.projected(objects.raw))){
+      proj4string(objects.raw) <- CRS(proj4string(points.clean))
+    }
     # clip artefacts away from unclassified object edge using lidar boundary
     nDSM_bound_direc <- "E:/MetroVancouverData/nDSM_boundaries"
     source("shplist.R")
@@ -164,6 +168,9 @@ if(params$run.ShpRead){
     boundary.file.name <- str_replace(boundary.file.name,pattern = "E:/MetroVancouverData/nDSM_boundaries/",replacement = "")
     boundary.file.name <- str_replace(boundary.file.name,pattern = ".shp",replacement = "")
     lidar_boundary <- readOGR(dsn = nDSM_bound_direc, layer = boundary.file.name)
+    if(is.na(sp::is.projected(lidar_boundary))){
+      proj4string(lidar_boundary) <- CRS(proj4string(points.clean))
+    }
     # now to clip using sp::over
     objects_backup <- objects.raw
     objects_clip <- objects_backup[lidar_boundary,] 
@@ -187,12 +194,9 @@ if(params$run.ShpRead){
     #save object names to a file that can be loaded outside loop
     object_names <- names(objects_clip_short)
     write.csv(x = object_names,file = paste0(objects.path,"/object_names_unclass.csv"),row.names = FALSE,col.names = FALSE)
-    #   can't get file save/read to work
-    #   object_names.file = file.path(objects.path, 'object_names.Rdata', fsep = .Platform$file.sep) 
-    #   save(object_names, file = object_names.file)
-    
+    objects.tmp.path <- "E:\\MetroVancouverData\\eCog_output\\LiDAR_areas\\LiDAR_Results\\temp"
     #write out clipped objects
-    writeOGR(objects_clip_short, objects.path, sprintf("unclass_objects_clip_%s", tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
+    writeOGR(objects_clip_short, objects.tmp.path, sprintf("unclass_objects_clip_%s", tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
     
   }
 
@@ -206,15 +210,13 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   
 	first.tile <- T   ## to execute specific code for the first tile only (initialize the big shapefiles)
 
-	# nr.clusters <- length(params$tile.names)
-	# cl <- makeCluster(nr.clusters)
-	# registerDoParallel(cl)
-	# foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
-	for (tile.idx in 1:length(params$tile.names)) {   
+	cl <- makeCluster(params$nr.clusters)
+	registerDoParallel(cl)
+	foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
+	# for (tile.idx in 1:length(params$tile.names)) {   
 
 		tile.name <- params$tile.names[tile.idx]
-
-		objects_clip_short <- readOGR(dsn =objects.path, layer =sprintf("unclass_objects_clip_%s", tile.name))
+		objects_clip_short <- readOGR(dsn =objects.tmp.path, layer =sprintf("unclass_objects_clip_%s", tile.name))
 
 		##### ensure object variable names match parameter names ####################
 		new_names <- read_csv(file = paste0(objects.path,"/object_names_unclass.csv")) #col_names = c("row","names")
@@ -235,13 +237,6 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 	  
 		#### SPATIAL JOIN --------------------------------------------------------------
 
-		## solution with union() from Raster package which has more options (not working!)
-		# objects <- gBuffer(objects, byid=TRUE, width=0)
-		# points <- gBuffer(points, byid=TRUE, width=0)
-		# union.res <- union(objects, points)
-
-
-		#THIS spatial join might be where the GT problem is coming in
 		# spatial join the polygons with over()
 		points.w.values <- over(points, objects_clip_short)
 		points.merged <- cbind(points@data, points.w.values)  ## stack together GT columns and predictor values
@@ -260,8 +255,8 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 
   #delete any inf and na values from predictor columns
   
-  if (sum(is.infinite(compl.dataset.dt$ CoefVar_nDSM)) >= 1){
-    compl.dataset.dt$CoefVar_nD <- replace(compl.dataset.dt$ CoefVar_nDSM, 
+  if (sum(is.infinite(compl.dataset.dt$CoefVar_nDSM)) >= 1){
+    compl.dataset.dt$CoefVar_nDSM <- replace(compl.dataset.dt$ CoefVar_nDSM, 
                                            is.infinite(compl.dataset.dt$ CoefVar_nDSM), 0)}
 
 
@@ -282,16 +277,23 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
     }
     
     # set class label column as factor
-    compl.dataset.dt[, (class.col) := lapply(.SD, as.factor),.SDcols=class.col]
+    #compl.dataset.dt[, (class.col) := lapply(.SD, as.factor),.SDcols=class.col]
+    
     ## Initialize empty vector to store N-fold predictions at each round of the loop
-    Y.predicted <- factor( rep(NA, nrow(compl.dataset.dt)), levels=levels(compl.dataset.dt[[class.col]]))
+    Y.predicted <- factor(rep(NA, nrow(compl.dataset.dt)), levels=levels(compl.dataset.dt[[class.col]]))
 
     ## n-fold CV loop
     for (f in 1:params$nfold) {
       
       segments.out <- folds == f    ## get logical indices of in and out segments in the object-level dt
       segments.in <- !segments.out
-      
+      compl.dataset.dt[[class.col]][segments.in]
+      #drop unused levels from class.col
+      y <- compl.dataset.dt[[class.col]][segments.in]
+      #levels(y) %in% unique(y)
+      y <- forcats::fct_drop(y)
+      #levels(y) %in% unique(y)
+  
 #### RF TRAINING & PREDICTION ----------------------------------------------
       
       ## Set mtry parameter according to params$mtry
@@ -304,7 +306,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       
       ## Training on kept-in segments
       set.seed(params$seed)  ## set seed to always have same results
-      RF <- randomForest(x=compl.dataset.dt[segments.in, predictors, with=FALSE], y=compl.dataset.dt[[class.col]][segments.in],   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
+      RF <- randomForest(x=compl.dataset.dt[segments.in, predictors, with=FALSE], y,   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
                          ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
       
       ## Prediction on left-out segments
@@ -328,37 +330,36 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 
 
     if (params$prediction.maps) {
-      
-		  RF_complete <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y=compl.dataset.dt[[class.col]],   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
+      y <- compl.dataset.dt[[class.col]]
+      y <- forcats::fct_drop(y)
+		  RF_complete <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y,   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
 								  ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
 
-  		# remove inf from objects_clip_short@data[, predictors]
+  		
   		#delete nDSM/sd_Ndsm if it contains more than one inf value b/c infs cannot be set to 0
   
   		#### LOOP ON TILES FOR PREDICTION -----------------------------------------
   
-  		# nr.clusters <- length(params$tile.names)
-  		# cl <- makeCluster(nr.clusters)
-  		# registerDoParallel(cl)
-  		# foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
-  		for (tile.idx in 1:length(params$tile.names)) {   
+  		cl <- makeCluster(params$nr.clusters)
+  		registerDoParallel(cl)
+  		foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
+  		# for (tile.idx in 1:length(params$tile.names)) {   
   
   			tile.name <- params$tile.names[tile.idx]
   
-  			objects_clip_short <- readOGR(dsn =objects.path, layer =sprintf("unclass_objects_clip_%s", tile.name))
-  
-  			if (sum(is.infinite(objects_clip_short@data$CoefVar_nD)) >= 1){
-  			objects_clip_short@data$CoefVar_nD <- replace(objects_clip_short@data$CoefVar_nD, 
-  												   is.infinite(objects_clip_short@data$CoefVar_nD), 0)}
-  
-  			if (sum(is.infinite(objects_clip_short@data$nDSM_div_SD_nDSM)) >= 1){
-  			drops3 <- c("nDSM_div_SD_nDSM")
-  			objects_clip_short@data <- objects_clip_short@data[,!(names(objects_clip_short@data) %in% drops3)]}
-  
-  
+  			objects_clip_short <- readOGR(dsn = objects.tmp.path, layer = sprintf("unclass_objects_clip_%s", tile.name))
+  			new_names <- read_csv(file = paste0(objects.path,"/object_names_unclass.csv")) #col_names = c("row","names")
+  			new_names <- (new_names$x)
+  			names(objects_clip_short)
+  			names(objects_clip_short) <- new_names
+  			
+  			# remove inf from objects_clip_short@data[, predictors]
+  			if (sum(is.infinite(objects_clip_short@data$CoefVar_nDSM)) >= 1){
+  			  objects_clip_short@data$CoefVar_nDSM <- replace(objects_clip_short@data$CoefVar_nDSM, 
+  			                                                  is.infinite(objects_clip_short@data$CoefVar_nDSM), 0)}
   
   			#RF prediction on full map
-  			Y.predicted.map <- predict(RF_complete, objects_clip_short@data[, predictors], type="response", predict.all=F, nodes=F)
+  			Y.predicted.map <- predict(RF_complete, objects_clip_short@data[,predictors], type="response", predict.all=F, nodes=F)
   
   			params$cols.to.keep <- params$predictors.all
   			objects.map <- objects_clip_short
