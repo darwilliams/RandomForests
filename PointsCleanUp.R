@@ -567,6 +567,9 @@ points.short@data$Five_m_Class_2_1st_choice <- points.short@data$Five_m_Class_2_
 points.short@data$Five_m_Class_2_1st_choice <- points.short@data$Five_m_Class_2_1st_choice %>% 
   gsub(pattern = "Tree_canopy", replacement = "Trees")
 
+points.short@data$Five_m_Class_2_1st_choice <- points.short@data$Five_m_Class_2_1st_choice %>% 
+  gsub(pattern = "Trees_", replacement = "Trees")
+
 points.short@data$Five_m_Class_2_1st_choice <- as.factor(points.short@data$Five_m_Class_2_1st_choice)
 levels(points.short@data$Five_m_Class_2_1st_choice)
 
@@ -738,6 +741,8 @@ points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_
 points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
   gsub(pattern = "Linear_pavedelev", replacement = "Linear_paved_elevated")
 
+points.short@data$Five_m_Class_3_1st_choice <- points.short@data$Five_m_Class_3_1st_choice %>% 
+  gsub(pattern = "Other_Built", replacement = "Other_built")
 #to check
 # "Linear"
 # "Non-linear"
@@ -1129,13 +1134,182 @@ points.short@data$Five_m_Class_3_2nd_choice <- as.factor(points.short@data$Five_
 #remove classifier notes column
 points.short@data$Classifier_notes <- NULL
 
-
 ##### write out cleaned up points #### 
 points.path <- "E:\\MetroVancouverData\\Training_Validation_Points"
 points.filename <- "MetroVan_gt_Bins1_16_tidy"
 points_variables <- as.data.frame(names(points.short))
 write_csv(points_variables,paste0(points.path,"\\points_variables_tidy.csv"),col_names = FALSE)
-writeOGR(points.short, points.path, points.filename, driver="ESRI Shapefile", overwrite_layer=TRUE) 
+writeOGR(points.short, points.path, points.filename, driver="ESRI Shapefile", overwrite_layer=TRUE)
+
+#load tidy data
+points.path <- "E:\\MetroVancouverData\\Training_Validation_Points"
+points.filename <- "MetroVan_gt_Bins1_16_tidy"
+
+#### read in cleaned up points ####
+points.clean <- readOGR(dsn=points.path, layer=points.filename) 
+
+# change column names to be meaningful for points and objects
+names (points.clean)
+points.names <- read_csv(file.path(points.path,"points_variables_tidy.csv"),col_names = FALSE)
+names (points.clean) <- points.names$X1 
+names(points.clean)
+
+
+##### fill na values ####
+
+#### one_m ####
+head(points.clean@data)
+which(is.na(points.clean@data$One_m_Class_1_1st_choice)) #check for na's in row 1
+onem.class2.na.index <- which(is.na(points.clean@data$One_m_Class_2_1st_choice))
+points.clean@data$One_m_Class_1_1st_choice[onem.class2.na.index]
+
+#looks like a couple Built-up entries didn't get class 2 inputs
+points.clean@data[c(5450,5573),]
+points.clean@data$One_m_Class_2_1st_choice[c(5450,5573)] <- "Paved"
+points.clean@data[c(5450,5573),]
+
+#add shadow to class 2 and 3
+onem.class2.na.index <- which(is.na(points.clean@data$One_m_Class_2_1st_choice))
+onem.shadow.index <- which(points.clean@data$One_m_Class_1_1st_choice == "Shadow")
+points.clean@data[onem.shadow.index,]
+levels(points.clean@data$One_m_Class_2_1st_choice)
+points.clean@data$One_m_Class_2_1st_choice <- forcats::fct_expand(points.clean@data$One_m_Class_2_1st_choice, "Shadow")
+points.clean@data$One_m_Class_2_1st_choice[onem.shadow.index] <- "Shadow"
+levels(points.clean@data$One_m_Class_3_1st_choice)
+points.clean@data$One_m_Class_3_1st_choice <- forcats::fct_expand(points.clean@data$One_m_Class_3_1st_choice, "Shadow")
+points.clean@data$One_m_Class_3_1st_choice[onem.shadow.index] <- "Shadow"
+
+#add clouds/ice to class 2 and 3
+onem.cloudice.index <- which(points.clean@data$One_m_Class_1_1st_choice == "Clouds/Ice")
+points.clean@data[onem.cloudice.index,]
+levels(points.clean@data$One_m_Class_2_1st_choice)
+points.clean@data$One_m_Class_2_1st_choice <- forcats::fct_expand(points.clean@data$One_m_Class_2_1st_choice, "Clouds/Ice")
+points.clean@data$One_m_Class_2_1st_choice[onem.cloudice.index] <- "Clouds/Ice"
+levels(points.clean@data$One_m_Class_3_1st_choice)
+points.clean@data$One_m_Class_3_1st_choice <- forcats::fct_expand(points.clean@data$One_m_Class_3_1st_choice, "Clouds/Ice")
+points.clean@data$One_m_Class_3_1st_choice[onem.cloudice.index] <- "Clouds/Ice"
+
+#look at Bare w/ NAs
+points.clean@data[c(3717,3814),]
+points.clean@data$One_m_Class_2_1st_choice[c(3717,3814)] <- "Barren"
+points.clean@data$One_m_Class_2_2nd_choice[c(3717,3814)] <- NA
+points.clean@data$One_m_Class_3_1st_choice[c(3717,3814)] <- "Natural_barren"
+points.clean@data$One_m_Class_3_2nd_choice[c(3717,3814)] <- NA
+points.clean@data$Five_m_Class1_1st_choice[c(3717,3814)] <- "Bare"
+points.clean@data$Five_m_Class_2_1st_choice[c(3717,3814)] <- "Barren"
+points.clean@data$Five_m_Class_3_1st_choice[c(3717,3814)] <- "Natural_barren"
+points.clean@data$Five_m_Class_3_2nd_choice[c(3717,3814)] <- NA
+
+#look at Water w/ NAs
+points.clean@data[c(3757,3854),]
+points.clean@data$One_m_Class_2_1st_choice[c(3757,3854)] <- "Water"
+levels(points.clean@data$One_m_Class_3_1st_choice)
+points.clean@data$One_m_Class_3_1st_choice <- forcats::fct_expand(points.clean@data$One_m_Class_3_1st_choice, "Water")
+points.clean@data$One_m_Class_3_1st_choice[c(3757,3854)] <- "Water"
+
+#Class 3 na's
+which(is.na(points.clean@data$One_m_Class_3_1st_choice))
+onem.class3.na.index <- which(is.na(points.clean@data$One_m_Class_3_1st_choice))
+unique(points.clean@data$One_m_Class_2_1st_choice[onem.class3.na.index])
+
+#figure out what those trees are doing in there
+whichtrees <- which(points.clean@data$One_m_Class_2_1st_choice[onem.class3.na.index] == "Trees")
+onem.class3.na.index[whichtrees]
+points.clean@data[c(2543,3043),]
+points.clean@data$One_m_Class_3_1st_choice[c(2543,3043)] <- "Coniferous"
+points.clean@data$One_m_Class_3_2nd_choice[c(2543,3043)] <- NA
+
+
+#set other nas to class 2 values
+levels(points.clean@data$One_m_Class_3_1st_choice)
+onem.class3.na.index <- which(is.na(points.clean@data$One_m_Class_3_1st_choice))
+points.clean@data$One_m_Class_3_1st_choice <- forcats::fct_expand(points.clean@data$One_m_Class_3_1st_choice, "Buildings","Non-photosynthetic","Other_Built")
+points.clean@data$One_m_Class_3_1st_choice[onem.class3.na.index] <- points.clean@data$One_m_Class_2_1st_choice[onem.class3.na.index]
+
+##### five_m ####
+which(is.na(points.clean@data$Five_m_Class1_1st_choice)) #check for na's in row 1
+fivem.class1.na.index <- which(is.na(points.clean@data$Five_m_Class1_1st_choice))
+points.clean@data$Five_m_Class1_1st_choice[fivem.class1.na.index]
+points.clean@data[fivem.class1.na.index,]
+points.clean <- points.clean[-fivem.class1.na.index,]
+points.clean
+
+#class2 
+which(is.na(points.clean@data$Five_m_Class_2_1st_choice))
+fivem.class2.na.index <- which(is.na(points.clean@data$Five_m_Class_2_1st_choice))
+points.clean@data$Five_m_Class_2_1st_choice[fivem.class2.na.index]
+points.clean@data$Five_m_Class1_1st_choice[fivem.class2.na.index]
+
+#add shadow to class 2 and 3
+fivem.class2.na.index <- which(is.na(points.clean@data$Five_m_Class_2_1st_choice))
+fivem.shadow.index <- which(points.clean@data$Five_m_Class1_1st_choice == "Shadow")
+points.clean@data[fivem.shadow.index,]
+levels(points.clean@data$Five_m_Class_2_1st_choice)
+points.clean@data$Five_m_Class_2_1st_choice <- forcats::fct_expand(points.clean@data$Five_m_Class_2_1st_choice, "Shadow")
+points.clean@data$Five_m_Class_2_1st_choice[fivem.shadow.index] <- "Shadow"
+levels(points.clean@data$Five_m_Class_3_1st_choice)
+points.clean@data$Five_m_Class_3_1st_choice <- forcats::fct_expand(points.clean@data$Five_m_Class_3_1st_choice, "Shadow")
+points.clean@data$Five_m_Class_3_1st_choice[fivem.shadow.index] <- "Shadow"
+
+#add clouds/ice to class 2 and 3
+fivem.cloudice.index <- which(points.clean@data$Five_m_Class1_1st_choice == "Clouds/Ice")
+points.clean@data[fivem.cloudice.index,]
+levels(points.clean@data$Five_m_Class_2_1st_choice)
+points.clean@data$Five_m_Class_2_1st_choice <- forcats::fct_expand(points.clean@data$Five_m_Class_2_1st_choice, "Clouds/Ice")
+points.clean@data$Five_m_Class_2_1st_choice[fivem.cloudice.index] <- "Clouds/Ice"
+levels(points.clean@data$Five_m_Class_3_1st_choice)
+points.clean@data$Five_m_Class_3_1st_choice <- forcats::fct_expand(points.clean@data$Five_m_Class_3_1st_choice, "Clouds/Ice")
+points.clean@data$Five_m_Class_3_1st_choice[fivem.cloudice.index] <- "Clouds/Ice"
+
+#look at Bare w/ NAs
+which(is.na(points.clean@data$Five_m_Class_2_1st_choice))
+fivem.class2.na.index <- which(is.na(points.clean@data$Five_m_Class_2_1st_choice))
+points.clean@data$Five_m_Class_2_1st_choice[fivem.class2.na.index]
+points.clean@data$Five_m_Class1_1st_choice[fivem.class2.na.index]
+points.clean@data[c(3720,3721,3815,3816),]
+points.clean@data$Five_m_Class_2_1st_choice[c(3720,3721,3815,3816)] <- "Barren"
+points.clean@data$Five_m_Class_2_2nd_choice <- forcats::fct_expand(points.clean@data$Five_m_Class_2_2nd_choice, "Clouds/Ice")
+points.clean@data$Five_m_Class_2_2nd_choice[c(3720,3721,3815,3816)] <- "Clouds/Ice"
+points.clean@data$Five_m_Class_3_1st_choice[c(3720,3721,3815,3816)] <- "Natural_barren"
+points.clean@data$Five_m_Class_3_2nd_choice <- forcats::fct_expand(points.clean@data$Five_m_Class_3_2nd_choice, "Clouds/Ice")
+points.clean@data$Five_m_Class_3_2nd_choice[c(3720,3721,3815,3816)] <- "Clouds/Ice"
+
+#look at Water w/ NAs
+points.clean@data[c(3750,3845),]
+points.clean@data$Five_m_Class_2_1st_choice[c(3750,3845)] <- "Water"
+levels(points.clean@data$Five_m_Class_3_1st_choice)
+points.clean@data$Five_m_Class_3_1st_choice <- forcats::fct_expand(points.clean@data$Five_m_Class_3_1st_choice, "Water")
+points.clean@data$Five_m_Class_3_1st_choice[c(3750,3845)] <- "Water"
+
+
+#class 3
+which(is.na(points.clean@data$Five_m_Class_3_1st_choice))
+fivem.class3.na.index <- which(is.na(points.clean@data$Five_m_Class_3_1st_choice))
+unique(points.clean@data$Five_m_Class_2_1st_choice[fivem.class3.na.index])
+
+#figure out what those barren points are doing in there
+whichbarren <- which(points.clean@data$Five_m_Class_2_1st_choice[fivem.class3.na.index] == "Barren")
+fivem.class3.na.index[whichbarren]
+points.clean@data[c(2174,2674),]
+points.clean@data$Five_m_Class_3_1st_choice[c(2174,2674)] <- "Natural_barren"
+points.clean@data$Five_m_Class_3_2nd_choice[c(2174,2674)] <- NA
+
+
+#set other nas to class 2 values
+which(is.na(points.clean@data$Five_m_Class_3_1st_choice))
+fivem.class3.na.index <- which(is.na(points.clean@data$Five_m_Class_3_1st_choice))
+unique(points.clean@data$Five_m_Class_2_1st_choice[fivem.class3.na.index])
+levels(points.clean@data$Five_m_Class_3_1st_choice)
+points.clean@data$Five_m_Class_3_1st_choice <- forcats::fct_expand(points.clean@data$Five_m_Class_3_1st_choice, "Buildings","Non-photosynthetic","Other_built")
+points.clean@data$Five_m_Class_3_1st_choice[fivem.class3.na.index] <- points.clean@data$Five_m_Class_2_1st_choice[fivem.class3.na.index]
+
+
+##### write out cleaned up points with no NAs #### 
+points.path <- "E:\\MetroVancouverData\\Training_Validation_Points"
+points.filename <- "MetroVan_gt_Bins1_16_tidy_noNA"
+points_variables <- as.data.frame(names(points.clean))
+write_csv(points_variables,paste0(points.path,"\\points_variables_tidy.csv"),col_names = FALSE)
+writeOGR(points.clean, points.path, points.filename, driver="ESRI Shapefile", overwrite_layer=TRUE)
 
 
 #### add column for points falling in urban landuse areas? ####
@@ -1154,7 +1328,6 @@ writeOGR(points.short, points.path, points.filename, driver="ESRI Shapefile", ov
 # data.subset <- points.lu@data %>% 
 #   filter(LU_CodeDes %in% built_up_lu)
 
-points.short
 #### END ####
 
 
@@ -1188,10 +1361,10 @@ points.short
 
 #remove building or tree points
 # points.short@data <- filter(points.short@data, !(Onem_Class_2_1st_choice == "Trees" | Onem_Class_2_1st_choice == "Building"))
-unique(points.short@data[,5])
-unique(points.short@data[,11])
-
-points.short@data %>% 
-  select(Point_Number,Onem_Class_2_1st_choice)
+# unique(points.short@data[,5])
+# unique(points.short@data[,11])
+# 
+# points.short@data %>% 
+#   select(Point_Number,Onem_Class_2_1st_choice)
 
  
