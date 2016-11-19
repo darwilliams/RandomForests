@@ -259,8 +259,6 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
     compl.dataset.dt$CoefVar_nDSM <- replace(compl.dataset.dt$ CoefVar_nDSM, 
                                            is.infinite(compl.dataset.dt$ CoefVar_nDSM), 0)}
 
-
-  
 #### Create n-fold CV indicators------------------------------------
   set.seed(params$seed)
   folds <- createFolds(compl.dataset.dt[[class.col]], k=params$nfold, list=F)  ## [[]] to access column of dt as vector
