@@ -71,7 +71,7 @@ params <- list()
 ## General
 params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$run.ShpRead <- T # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
+params$run.ShpRead <- F # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
 ## list of all starting predictors 
 
 params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
@@ -88,15 +88,16 @@ params$predictors.geometric <-  c("Border_ind", "Compactnes", "Density", "Ellipt
 params$predictors.all <- c(params$predictors.spectral,params$predictors.LiDAR,params$predictors.geometric)                                                                    
 
 params$tile.names <- objects.filename.list
+rm(shplist)
 
 ## RF
 params$nfold <- 4
 params$seed <- 2016        ## seed to have same RF result
-params$parallel.RF <- F    ## whether to run RF in parallel or not
+params$parallel.RF <- T    ## whether to run RF in parallel or not
 params$ntree <- 100     ## RF nr of trees
 params$mtry <- 'sqrt_nr_var'  ## how to set RF mtry: 'sqrt_nr_var' or 'nr_var_div_3'
 params$nodesize <- 1   ## RF nodesize: default for classification is 1
-params$plot.importance <- F  ## whether to plot RF variable importance
+params$plot.importance <- T  ## whether to plot RF variable importance
 params$prediction.maps <- T
 
 ## Parallel Processing clusters
@@ -147,8 +148,8 @@ cl <- makeCluster(params$nr.clusters) ## to uncomment when running in parallel, 
 registerDoParallel(cl)
   
 #### Clip input objects to nDSM boundaries ####  
-  foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {
-  # for (tile.idx in 1:length(params$tile.names)) {   
+  foreach (tile.idx = 31:length(params$tile.names), .packages=list.of.packages) %dopar% {
+  # for (tile.idx in 31:length(params$tile.names)) {   
 
   	tile.name <- params$tile.names[tile.idx]
 
@@ -167,10 +168,14 @@ registerDoParallel(cl)
     boundary.file.name <- str_subset(nDSM_boundary_list$V1,pattern)
     boundary.file.name <- str_replace(boundary.file.name,pattern = "E:/MetroVancouverData/nDSM_boundaries/",replacement = "")
     boundary.file.name <- str_replace(boundary.file.name,pattern = ".shp",replacement = "")
+    if(length(boundary.file.name)>1){
+      stop("Multiple lidar boundaries selected:", print(boundary.file.name))
+    }
     lidar_boundary <- readOGR(dsn = nDSM_bound_direc, layer = boundary.file.name)
     if(is.na(sp::is.projected(lidar_boundary))){
       proj4string(lidar_boundary) <- CRS(proj4string(points.clean))
     }
+    rm(boundary.file.name)
     # now to clip using sp::over
     objects_backup <- objects.raw
     objects_clip <- objects_backup[lidar_boundary,] 
@@ -201,8 +206,7 @@ registerDoParallel(cl)
   }
 
 }
- 
- 
+
 ##### START OF THE LOOP, choosing which group to include -------------------------
 
 RES <- list()  ## initialize list object to store results
@@ -216,8 +220,8 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 	# for (tile.idx in 1:length(params$tile.names)) {   
 
 		tile.name <- params$tile.names[tile.idx]
-		objects_clip_short <- readOGR(dsn =objects.tmp.path, layer =sprintf("unclass_objects_clip_%s", tile.name))
-
+		objects_clip <- readOGR(dsn =objects.tmp.path, layer =sprintf("unclass_objects_clip_%s", tile.name))
+		
 		##### ensure object variable names match parameter names ####################
 		new_names <- read_csv(file = paste0(objects.path,"/object_names_unclass.csv")) #col_names = c("row","names")
 		new_names <- (new_names$x)
@@ -333,9 +337,6 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 		  RF_complete <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y,   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
 								  ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
 
-  		
-  		#delete nDSM/sd_Ndsm if it contains more than one inf value b/c infs cannot be set to 0
-  
   		#### LOOP ON TILES FOR PREDICTION -----------------------------------------
   
   		cl <- makeCluster(params$nr.clusters)
