@@ -184,15 +184,15 @@ registerDoParallel(cl)
     
     # remove buildings, trees from objects_clip
     names(objects_clip)
-    drops <- c("Building","Trees") ##### this will need to change ####
+    drops <- c("Building","Trees")
     objects_clip_short <- objects_clip[,!(names(objects_clip) %in% drops)]
-    names(objects_clip_short)
+    names(objects_clip)
     
     # use names from objects_table to rename objects.raw attribute table
     #read in data
     objects_table <- fread("D:\\RandomForests\\LidarObjectFeatureNames.csv") #read in data table
     objects_table <- objects_table$RNames
-    objects_table <- objects_table[!(names(objects_clip) %in% drops)]
+    objects_table <- objects_table[!(names(objects_clip_short) %in% drops)]
     # set objects_table to names of objects_clip_short
     names(objects_clip_short) <- objects_table
     
@@ -220,8 +220,22 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 	# for (tile.idx in 1:length(params$tile.names)) {   
 
 		tile.name <- params$tile.names[tile.idx]
-		objects_clip <- readOGR(dsn =objects.tmp.path, layer =sprintf("unclass_objects_clip_%s", tile.name))
+		objects_clip_short <- readOGR(dsn =objects.tmp.path, layer =sprintf("unclass_objects_clip_%s", tile.name))
 		
+	# remove buildings, trees from objects_clip
+		names(objects_clip_short)
+		drops <- c("Building","Trees")
+		objects_clip_short <- objects_clip_short[,!(names(objects_clip_short) %in% drops)]
+		names(objects_clip_short)
+		
+		# use names from objects_table to rename objects.raw attribute table
+		#read in data
+		objects_table <- fread("D:\\RandomForests\\LidarObjectFeatureNames.csv") #read in data table
+		objects_table <- objects_table$RNames
+		drop <- which(objects_table %in% drops)
+		objects_table <- objects_table[-drop]
+		# set objects_table to names of objects_clip_short
+		names(objects_clip_short) <- objects_table
 		##### ensure object variable names match parameter names ####################
 		new_names <- read_csv(file = paste0(objects.path,"/object_names_unclass.csv")) #col_names = c("row","names")
 		new_names <- (new_names$x)
