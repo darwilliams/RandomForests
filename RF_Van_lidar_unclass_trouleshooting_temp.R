@@ -144,6 +144,7 @@ names(points.clean)
 if(params$run.ShpRead){
 
 #### Set up parallel processing ####
+# uncomment stopCluster(cl) below if uncommenting this 
 cl <- makeCluster(params$nr.clusters) ## to uncomment when running in parallel, after successful debugging
 registerDoParallel(cl)
   
@@ -169,7 +170,7 @@ registerDoParallel(cl)
     boundary.file.name <- str_replace(boundary.file.name,pattern = "E:/MetroVancouverData/nDSM_boundaries/",replacement = "")
     boundary.file.name <- str_replace(boundary.file.name,pattern = ".shp",replacement = "")
     if(length(boundary.file.name)>1){
-      stop("Multiple lidar boundaries selected:", print(boundary.file.name))
+      stop("Multiple lidar boundaries selected:", print(tile.name), print(boundary.file.name))
     }
     lidar_boundary <- readOGR(dsn = nDSM_bound_direc, layer = boundary.file.name)
     if(is.na(sp::is.projected(lidar_boundary))){
@@ -205,6 +206,8 @@ registerDoParallel(cl)
     
   }
 
+stopCluster(cl)
+
 }
 
 ##### START OF THE LOOP, choosing which group to include -------------------------
@@ -218,7 +221,8 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 	source("shplist.R")
 	shplist(objects.tmp.path)
 	objectlist <- shplist
-
+	
+#	  uncomment stopCluster(cl) below if uncommenting this 
 # 	cl <- makeCluster(params$nr.clusters)
 # 	registerDoParallel(cl)
 # 	foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
@@ -278,7 +282,9 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 		
 		rm(compl.dataset)
   
-  }
+	}
+	
+	# stopCluster(cl)
 
   #delete any inf and na values from predictor columns
   
@@ -361,7 +367,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 								  ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
 
   		#### LOOP ON TILES FOR PREDICTION -----------------------------------------
-  
+#       #uncomment stopCluster(cl) below if uncommenting this 
 #   		cl <- makeCluster(params$nr.clusters)
 #   		registerDoParallel(cl)
 #   		foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
@@ -397,6 +403,8 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   			writeOGR(objects.map, results.dir, sprintf("Prediction_map_%s_%s_%s", gt.type, pred.type, tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
   			
   		}
+		  
+		  # stopCluster(cl)
 	  
     }  ## end if params$prediction.maps
 
