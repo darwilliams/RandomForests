@@ -150,6 +150,7 @@ registerDoParallel(cl)
   
 #### Clip input objects to nDSM boundaries ####  
   foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {
+  # foreach (tile.idx = 42:51, .packages=list.of.packages) %dopar% { running in stages ended up working - why?
   # for (tile.idx in 1:length(params$tile.names)) {   
 
   	tile.name <- params$tile.names[tile.idx]
@@ -187,13 +188,14 @@ registerDoParallel(cl)
     names(objects_clip)
     drops <- c("Building","Trees")
     objects_clip_short <- objects_clip[,!(names(objects_clip) %in% drops)]
-    names(objects_clip)
+    names(objects_clip_short)
     
     # use names from objects_table to rename objects.raw attribute table
     #read in data
     objects_table <- fread("D:\\RandomForests\\LidarObjectFeatureNames.csv") #read in data table
     objects_table <- objects_table$RNames
-    objects_table <- objects_table[!(names(objects_clip_short) %in% drops)]
+    drop <- which(objects_table %in% drops)
+    objects_table <- objects_table[-drop]
     # set objects_table to names of objects_clip_short
     names(objects_clip_short) <- objects_table
     
@@ -217,19 +219,22 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   
 	first.tile <- T ## to execute specific code for the first tile only (initialize the big shapefiles)
 	
-	#safety override b/c of read in error
 	source("shplist.R")
 	shplist(objects.tmp.path)
 	objectlist <- shplist
+	objectlist <- str_subset(shplist$V1, "unclas")
+	objectlist <- str_replace(objectlist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/temp/",replacement = "")
+	objectlist <- str_replace(objectlist,pattern = ".shp",replacement = "")
 	
-#	  uncomment stopCluster(cl) below if uncommenting this 
-# 	cl <- makeCluster(params$nr.clusters)
-# 	registerDoParallel(cl)
-# 	foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
-	for (tile.idx in 1:length(objectlist)) {   
-
+#	  uncomment stopCluster(cl) below if uncommenting this and vice versa 
+	cl <- makeCluster(params$nr.clusters)
+	registerDoParallel(cl)
+	foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
+	# for (tile.idx in 1:length(objectlist)) {   
+	 
+	    
 		tile.name <- objectlist[tile.idx]
-		objects_clip_short <- readOGR(dsn = objects.tmp.path, layer =sprintf("unclass_objects_clip_%s", tile.name))
+		objects_clip_short <- readOGR(dsn = objects.tmp.path, layer = tile.name)
 		if(is.na(sp::is.projected(objects_clip_short))){
 		  proj4string(objects_clip_short) <- CRS(proj4string(points.clean))
 		}
@@ -250,11 +255,11 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 		##### ensure object variable names match parameter names ####################
 		new_names <- read_csv(file = paste0(objects.path,"/object_names_unclass.csv")) #col_names = c("row","names")
 		new_names <- (new_names$x)
-		names(objects_clip_short)
+		# names(objects_clip_short)
 		names(objects_clip_short) <- new_names
-		names(objects_clip_short) #should be the right names!
+		# names(objects_clip_short) #should be the right names!
 		#write out clipped objects
-		writeOGR(objects_clip_short, objects.tmp.path, sprintf("unclass_objects_clip_%s", tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
+		# writeOGR(objects_clip_short, objects.tmp.path, sprintf("unclass_objects_clip_%s", tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
 		
 		## filter points to keep only the desired GT level ("One_m" or "Five_m")
 		if (gt.type == "One_m") {
@@ -275,22 +280,29 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 		
 		if (first.tile) {
 			compl.dataset.dt <- as.data.table(compl.dataset)
+			compl.dataset.dt <<- as.data.table(compl.dataset)
+			assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv)
+			assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
 			first.tile <- F   ## change logical to FALSE so that 2nd part of if-else block is used from now on
 		} else {
 			compl.dataset.dt <- rbind(compl.dataset.dt, as.data.table(compl.dataset))
+			compl.dataset.dt <<- rbind(compl.dataset.dt, as.data.table(compl.dataset)) #need <<- ?
+			#delete any inf and na values from predictor columns
+			if (sum(is.infinite(compl.dataset.dt$CoefVar_nDSM)) >= 1){
+			  compl.dataset.dt$CoefVar_nDSM <- replace(compl.dataset.dt$CoefVar_nDSM, 
+			                                            is.infinite(compl.dataset.dt$CoefVar_nDSM), 0)}
+			assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv) # can also try this: envir = parent.frame()
+			assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
 		}
 		
 		rm(compl.dataset)
-  
+		assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv)
+		assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
+		
 	}
+	stopCluster(cl)
 	
-	# stopCluster(cl)
 
-  #delete any inf and na values from predictor columns
-  
-  if (sum(is.infinite(compl.dataset.dt$CoefVar_nDSM)) >= 1){
-    compl.dataset.dt$CoefVar_nDSM <- replace(compl.dataset.dt$CoefVar_nDSM, 
-                                           is.infinite(compl.dataset.dt$CoefVar_nDSM), 0)}
 
 #### Create n-fold CV indicators------------------------------------
   set.seed(params$seed)
@@ -372,16 +384,17 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
 #   		registerDoParallel(cl)
 #   		foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
   		for (tile.idx in 1:length(objectlist)) {
-  		  
-  		  #safety override b/c of read in error
-  		  objects.tmp.path <- "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/temp"
+  		
   		  source("shplist.R")
   		  shplist(objects.tmp.path)
   		  objectlist <- shplist
+  		  objectlist <- str_subset(shplist$V1, "unclas")
+  		  objectlist <- str_replace(objectlist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/temp/",replacement = "")
+  		  objectlist <- str_replace(objectlist,pattern = ".shp",replacement = "")
   
   			tile.name <- objectlist[tile.idx]
   
-  			objects_clip_short <- readOGR(dsn = objects.tmp.path, layer = sprintf("unclass_objects_clip_%s", tile.name))
+  			objects_clip_short <- readOGR(dsn = objects.tmp.path, layer = tile.name)
   			new_names <- read_csv(file = paste0(objects.path,"/object_names_unclass.csv")) #col_names = c("row","names")
   			new_names <- (new_names$x)
   			names(objects_clip_short)
