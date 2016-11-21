@@ -142,19 +142,19 @@ names(points.clean)
 
 #### Start clipping loop ---------------------------------------
 if(params$run.ShpRead){
-
-#### Set up parallel processing ####
-# uncomment stopCluster(cl) below if uncommenting this 
-cl <- makeCluster(params$nr.clusters) ## to uncomment when running in parallel, after successful debugging
-registerDoParallel(cl)
   
-#### Clip input objects to nDSM boundaries ####  
+  #### Set up parallel processing ####
+  # uncomment stopCluster(cl) below if uncommenting this 
+  cl <- makeCluster(params$nr.clusters) ## to uncomment when running in parallel, after successful debugging
+  registerDoParallel(cl)
+  
+  #### Clip input objects to nDSM boundaries ####  
   foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {
-  # foreach (tile.idx = 42:51, .packages=list.of.packages) %dopar% { running in stages ended up working - why?
-  # for (tile.idx in 1:length(params$tile.names)) {   
-
-  	tile.name <- params$tile.names[tile.idx]
-
+    # foreach (tile.idx = 42:51, .packages=list.of.packages) %dopar% { running in stages ended up working - why?
+    # for (tile.idx in 1:length(params$tile.names)) {   
+    
+    tile.name <- params$tile.names[tile.idx]
+    
     ## read shapefiles
     objects.raw <- readOGR(dsn=objects.path, layer=tile.name)
     if(is.na(sp::is.projected(objects.raw))){
@@ -207,9 +207,9 @@ registerDoParallel(cl)
     writeOGR(objects_clip_short, objects.tmp.path, sprintf("unclass_objects_clip_%s", tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
     
   }
-
-stopCluster(cl)
-
+  
+  stopCluster(cl)
+  
 }
 
 ##### START OF THE LOOP, choosing which group to include -------------------------
@@ -217,100 +217,117 @@ stopCluster(cl)
 RES <- list()  ## initialize list object to store results
 for (gt.type in params$GT.types) {  ## loop using one or five m ground truth polys
   
-	first.tile <- T ## to execute specific code for the first tile only (initialize the big shapefiles)
-	
-	source("shplist.R")
-	shplist(objects.tmp.path)
-	objectlist <- shplist
-	objectlist <- str_subset(shplist$V1, "unclas")
-	objectlist <- str_replace(objectlist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/temp/",replacement = "")
-	objectlist <- str_replace(objectlist,pattern = ".shp",replacement = "")
-	
-#	  uncomment stopCluster(cl) below if uncommenting this and vice versa 
-	cl <- makeCluster(params$nr.clusters)
-	registerDoParallel(cl)
-	foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
-	# for (tile.idx in 1:length(objectlist)) {   
-	 
-	    
-		tile.name <- objectlist[tile.idx]
-		objects_clip_short <- readOGR(dsn = objects.tmp.path, layer = tile.name)
-		if(is.na(sp::is.projected(objects_clip_short))){
-		  proj4string(objects_clip_short) <- CRS(proj4string(points.clean))
-		}
-	# remove buildings, trees from objects_clip
-		names(objects_clip_short)
-		drops <- c("Building","Trees")
-		objects_clip_short <- objects_clip_short[,!(names(objects_clip_short) %in% drops)]
-		names(objects_clip_short)
-		
-		# use names from objects_table to rename objects.raw attribute table
-		#read in data
-		objects_table <- fread("D:\\RandomForests\\LidarObjectFeatureNames.csv") #read in data table
-		objects_table <- objects_table$RNames
-		drop <- which(objects_table %in% drops)
-		objects_table <- objects_table[-drop]
-		# set objects_table to names of objects_clip_short
-		names(objects_clip_short) <- objects_table
-		##### ensure object variable names match parameter names ####################
-		new_names <- read_csv(file = paste0(objects.path,"/object_names_unclass.csv")) #col_names = c("row","names")
-		new_names <- (new_names$x)
-		# names(objects_clip_short)
-		names(objects_clip_short) <- new_names
-		# names(objects_clip_short) #should be the right names!
-		#write out clipped objects
-		# writeOGR(objects_clip_short, objects.tmp.path, sprintf("unclass_objects_clip_%s", tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
-		
-		## filter points to keep only the desired GT level ("One_m" or "Five_m")
-		if (gt.type == "One_m") {
-  		points <- subset(points.clean, Shape_Area < 10)
-  		class.col <- "One_m_Class_2_1st_choice"
-		} else if (gt.type == "Five_m") {
-  		points <- subset(points.clean, Shape_Area > 10) # see if this change improves things somehow
-  		# points <- subset(points.clean, Shape_Area > 10 & Onem_Class_2_1st_choice == Fivem_Class_2_1st_choice) ## watch out for names (to be changed)!
-  		class.col <- "Five_m_Class_2_1st_choice"
-		}
-	  
-		#### SPATIAL JOIN --------------------------------------------------------------
-
-		# spatial join the polygons with over()
-		points.w.values <- over(points, objects_clip_short)
-		points.merged <- cbind(points@data, points.w.values)  ## stack together GT columns and predictor values
-		compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
-		
-		if (first.tile) {
-			compl.dataset.dt <- as.data.table(compl.dataset)
-			compl.dataset.dt <<- as.data.table(compl.dataset)
-			assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv)
-			assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
-			first.tile <- F   ## change logical to FALSE so that 2nd part of if-else block is used from now on
-		} else {
-			compl.dataset.dt <- rbind(compl.dataset.dt, as.data.table(compl.dataset))
-			compl.dataset.dt <<- rbind(compl.dataset.dt, as.data.table(compl.dataset)) #need <<- ?
-			#delete any inf and na values from predictor columns
-			if (sum(is.infinite(compl.dataset.dt$CoefVar_nDSM)) >= 1){
-			  compl.dataset.dt$CoefVar_nDSM <- replace(compl.dataset.dt$CoefVar_nDSM, 
-			                                            is.infinite(compl.dataset.dt$CoefVar_nDSM), 0)}
-			assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv) # can also try this: envir = parent.frame()
-			assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
-		}
-		
-		rm(compl.dataset)
-		assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv)
-		assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
-		
-	}
-	stopCluster(cl)
-	
-
-
-#### Create n-fold CV indicators------------------------------------
+  first.tile <- T ## to execute specific code for the first tile only (initialize the big shapefiles)
+  
+  source("shplist.R")
+  shplist(objects.tmp.path)
+  objectlist <- shplist
+  objectlist <- str_subset(shplist$V1, "unclas")
+  objectlist <- str_replace(objectlist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/temp/",replacement = "")
+  objectlist <- str_replace(objectlist,pattern = ".shp",replacement = "")
+  
+  #	  uncomment stopCluster(cl) below if uncommenting this and vice versa 
+#   cl <- makeCluster(params$nr.clusters)
+#   registerDoParallel(cl)
+#   foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
+    for (tile.idx in 1:length(objectlist)) {
+    
+    tile.name <- objectlist[tile.idx]
+    objects_clip_short <- readOGR(dsn = objects.tmp.path, layer = tile.name)
+    if(is.na(sp::is.projected(objects_clip_short))){
+      proj4string(objects_clip_short) <- CRS(proj4string(points.clean))
+    }
+    # remove buildings, trees from objects_clip
+    names(objects_clip_short)
+    drops <- c("Building","Trees")
+    objects_clip_short <- objects_clip_short[,!(names(objects_clip_short) %in% drops)]
+    names(objects_clip_short)
+    
+    # use names from objects_table to rename objects.raw attribute table
+    #read in data
+    objects_table <- fread("D:\\RandomForests\\LidarObjectFeatureNames.csv") #read in data table
+    objects_table <- objects_table$RNames
+    drop <- which(objects_table %in% drops)
+    objects_table <- objects_table[-drop]
+    # set objects_table to names of objects_clip_short
+    names(objects_clip_short) <- objects_table
+    ##### ensure object variable names match parameter names ####################
+    new_names <- read_csv(file = paste0(objects.path,"/object_names_unclass.csv")) #col_names = c("row","names")
+    new_names <- (new_names$x)
+    # names(objects_clip_short)
+    names(objects_clip_short) <- new_names
+    # names(objects_clip_short) #should be the right names!
+    #write out clipped objects
+    # writeOGR(objects_clip_short, objects.tmp.path, sprintf("unclass_objects_clip_%s", tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
+    
+    ## filter points to keep only the desired GT level ("One_m" or "Five_m")
+    if (gt.type == "One_m") {
+      points <- subset(points.clean, Shape_Area < 10)
+      class.col <- "One_m_Class_2_1st_choice"
+      class.col <<- "One_m_Class_2_1st_choice"
+      saveRDS(class.col,"class.col.RDS")
+    } else if (gt.type == "Five_m") {
+      points <- subset(points.clean, Shape_Area > 10) # see if this change improves things somehow
+      # points <- subset(points.clean, Shape_Area > 10 & Onem_Class_2_1st_choice == Fivem_Class_2_1st_choice) ## watch out for names (to be changed)!
+      class.col <- "Five_m_Class_2_1st_choice"
+      class.col <<- "Five_m_Class_2_1st_choice"
+      saveRDS(class.col,"class.col.RDS")
+    }
+    
+    #### SPATIAL JOIN --------------------------------------------------------------
+    
+    # spatial join the polygons with over()
+    points.w.values <- over(points, objects_clip_short)
+    points.merged <- cbind(points@data, points.w.values)  ## stack together GT columns and predictor values
+    compl.dataset <- points.merged %>% filter(!is.na(Border_ind))  ## remove NAs (points falling outiside of polygons)
+    
+    if (first.tile) {
+      compl.dataset.dt <- as.data.table(compl.dataset)
+      compl.dataset.dt <<- as.data.table(compl.dataset)
+#       assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv)
+#       assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
+      # return(compl.dataset.dt)
+      first.tile <- F   ## change logical to FALSE so that 2nd part of if-else block is used from now on
+    } else {
+      compl.dataset.dt <- rbind(compl.dataset.dt, as.data.table(compl.dataset))
+      compl.dataset.dt <<- rbind(compl.dataset.dt, as.data.table(compl.dataset)) #need <<- ?
+      #delete any inf and na values from predictor columns
+      if (sum(is.infinite(compl.dataset.dt$CoefVar_nDSM)) >= 1){
+        compl.dataset.dt$CoefVar_nDSM <- replace(compl.dataset.dt$CoefVar_nDSM, 
+                                                 is.infinite(compl.dataset.dt$CoefVar_nDSM), 0)}
+      # assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv) # can also try this: envir = parent.frame()
+      # assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
+      # return(compl.dataset.dt)
+      saveRDS(compl.dataset.dt, "compl.dataset.dt.rds")
+    }
+    
+    rm(compl.dataset)
+#     assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv)
+#     assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
+    # return(compl.dataset.dt)
+    if (sum(is.infinite(compl.dataset.dt$CoefVar_nDSM)) >= 1){
+      compl.dataset.dt$CoefVar_nDSM <- replace(compl.dataset.dt$CoefVar_nDSM, 
+                                               is.infinite(compl.dataset.dt$CoefVar_nDSM), 0)}
+    saveRDS(compl.dataset.dt, "compl.dataset.dt.rds")
+    
+    
+  }
+  # stopCluster(cl)
+  
+  
+  
+  #### Create n-fold CV indicators------------------------------------
   set.seed(params$seed)
+  compl.dataset.dt <- readRDS("compl.dataset.dt.rds")
+  if (sum(is.infinite(compl.dataset.dt$CoefVar_nDSM)) >= 1){
+    compl.dataset.dt$CoefVar_nDSM <- replace(compl.dataset.dt$CoefVar_nDSM, 
+                                             is.infinite(compl.dataset.dt$CoefVar_nDSM), 0)}
+  class.col <- readRDS("class.col.rds")
   folds <- createFolds(compl.dataset.dt[[class.col]], k=params$nfold, list=F)  ## [[]] to access column of dt as vector
   
   ## Loop over the predictor types
   for (pred.type in params$predictor.types) {  
-
+    
     if (pred.type == 'all') {
       predictors <- params$predictors.all
     } else if (pred.type == 'spectral') {
@@ -324,7 +341,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
     
     ## Initialize empty vector to store N-fold predictions at each round of the loop
     Y.predicted <- factor(rep(NA, nrow(compl.dataset.dt)), levels=levels(compl.dataset.dt[[class.col]]))
-
+    
     ## n-fold CV loop
     for (f in 1:params$nfold) {
       
@@ -336,8 +353,8 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       #levels(y) %in% unique(y)
       y <- forcats::fct_drop(y)
       #levels(y) %in% unique(y)
-  
-#### RF TRAINING & PREDICTION ----------------------------------------------
+      
+      #### RF TRAINING & PREDICTION ----------------------------------------------
       
       ## Set mtry parameter according to params$mtry
       nr.vars <- length(predictors) 
@@ -360,7 +377,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       
     }  ## end of n-fold loop
     
-#### ASSESSMENT ----------------------------------------------------------- #will this work here?
+    #### ASSESSMENT ----------------------------------------------------------- #will this work here?
     
     ## overall assessment
     metrics <- classif.metrics(Y.predicted, compl.dataset.dt[[class.col]])
@@ -368,61 +385,61 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
     ## store results by GT type and by predictors type in RES list
     cmd <- sprintf("RES$%s$%s <- metrics", gt.type, pred.type)
     eval(parse(text=cmd))
-
-#### PREDICTION ON FULL MAP ------------------------------------------------
-
-
+    
+    #### PREDICTION ON FULL MAP ------------------------------------------------
+    
+    
     if (params$prediction.maps) {
       y <- compl.dataset.dt[[class.col]]
       y <- forcats::fct_drop(y)
-		  RF_complete <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y,   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
-								  ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
-
-  		#### LOOP ON TILES FOR PREDICTION -----------------------------------------
-#       #uncomment stopCluster(cl) below if uncommenting this 
-#   		cl <- makeCluster(params$nr.clusters)
-#   		registerDoParallel(cl)
-#   		foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
-  		for (tile.idx in 1:length(objectlist)) {
-  		
-  		  source("shplist.R")
-  		  shplist(objects.tmp.path)
-  		  objectlist <- shplist
-  		  objectlist <- str_subset(shplist$V1, "unclas")
-  		  objectlist <- str_replace(objectlist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/temp/",replacement = "")
-  		  objectlist <- str_replace(objectlist,pattern = ".shp",replacement = "")
-  
-  			tile.name <- objectlist[tile.idx]
-  
-  			objects_clip_short <- readOGR(dsn = objects.tmp.path, layer = tile.name)
-  			new_names <- read_csv(file = paste0(objects.path,"/object_names_unclass.csv")) #col_names = c("row","names")
-  			new_names <- (new_names$x)
-  			names(objects_clip_short)
-  			names(objects_clip_short) <- new_names
-  			
-  			# remove inf from objects_clip_short@data[, predictors]
-  			if (sum(is.infinite(objects_clip_short@data$CoefVar_nDSM)) >= 1){
-  			  objects_clip_short@data$CoefVar_nDSM <- replace(objects_clip_short@data$CoefVar_nDSM, 
-  			                                                  is.infinite(objects_clip_short@data$CoefVar_nDSM), 0)}
-  
-  			#RF prediction on full map
-  			Y.predicted.map <- predict(RF_complete, objects_clip_short@data[,predictors], type="response", predict.all=F, nodes=F)
-  
-  			params$cols.to.keep <- params$predictors.all
-  			objects.map <- objects_clip_short
-  			objects.map@data[, !colnames(objects.map@data) %in% params$cols.to.keep] <- list(NULL)
-  			objects.map@data$pred_class <- Y.predicted.map
-  
-  			writeOGR(objects.map, results.dir, sprintf("Prediction_map_%s_%s_%s", gt.type, pred.type, tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
-  			
-  		}
-		  
-		  # stopCluster(cl)
-	  
+      RF_complete <- randomForest(x=compl.dataset.dt[, predictors, with=FALSE], y,   ## y has to be a vector and the syntax for data.table is first getting the vector with [[]] then subsetting it from outside by adding [segments.in] 
+                                  ntree=params$ntree, mtry=mtries, nodesize=params$nodesize, importance=params$plot.importance)  ## apply RF on dt with object-level values using as predictors the columns listed in "predictors" and with response variable the column specified by "class.col"
+      
+      #### LOOP ON TILES FOR PREDICTION -----------------------------------------
+      #       #uncomment stopCluster(cl) below if uncommenting this 
+      #   		cl <- makeCluster(params$nr.clusters)
+      #   		registerDoParallel(cl)
+      #   		foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
+      for (tile.idx in 1:length(objectlist)) {
+        
+        source("shplist.R")
+        shplist(objects.tmp.path)
+        objectlist <- shplist
+        objectlist <- str_subset(shplist$V1, "unclas")
+        objectlist <- str_replace(objectlist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/temp/",replacement = "")
+        objectlist <- str_replace(objectlist,pattern = ".shp",replacement = "")
+        
+        tile.name <- objectlist[tile.idx]
+        
+        objects_clip_short <- readOGR(dsn = objects.tmp.path, layer = tile.name)
+        new_names <- read_csv(file = paste0(objects.path,"/object_names_unclass.csv")) #col_names = c("row","names")
+        new_names <- (new_names$x)
+        names(objects_clip_short)
+        names(objects_clip_short) <- new_names
+        
+        # remove inf from objects_clip_short@data[, predictors]
+        if (sum(is.infinite(objects_clip_short@data$CoefVar_nDSM)) >= 1){
+          objects_clip_short@data$CoefVar_nDSM <- replace(objects_clip_short@data$CoefVar_nDSM, 
+                                                          is.infinite(objects_clip_short@data$CoefVar_nDSM), 0)}
+        
+        #RF prediction on full map
+        Y.predicted.map <- predict(RF_complete, objects_clip_short@data[,predictors], type="response", predict.all=F, nodes=F)
+        
+        params$cols.to.keep <- params$predictors.all
+        objects.map <- objects_clip_short
+        objects.map@data[, !colnames(objects.map@data) %in% params$cols.to.keep] <- list(NULL)
+        objects.map@data$pred_class <- Y.predicted.map
+        
+        writeOGR(objects.map, results.dir, sprintf("Prediction_map_%s_%s_%s", gt.type, pred.type, tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)   ## write prediction map shapefile
+        
+      }
+      
+      # stopCluster(cl)
+      
     }  ## end if params$prediction.maps
-
+    
   } ## end of loop over predictor types
-
+  
 }  ## end of loop over GT types
 
 RES.file = file.path(results.dir, 'RESULTS_LiDAR_unclass.Rdata', fsep = .Platform$file.sep) 
