@@ -440,6 +440,16 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
         if (sum(is.infinite(objects_clip_short@data$CoefVar_nDSM)) >= 1){
           objects_clip_short@data$CoefVar_nDSM <- replace(objects_clip_short@data$CoefVar_nDSM, 
                                                           is.infinite(objects_clip_short@data$CoefVar_nDSM), 0)}
+        if (sum(is.infinite(objects_clip_short$sd_slope)) >= 1){
+          objects_clip_short$sd_slope <- replace(objects_clip_short$sd_slope, 
+                                               is.infinite(objects_clip_short$sd_slope), 0)}
+        if (sum(is.infinite(objects_clip_short$Mean_slope)) >= 1){
+          objects_clip_short$Mean_slope <- replace(objects_clip_short$Mean_slope, 
+                                                 is.infinite(objects_clip_short$Mean_slope), 0)}
+        # found some Inf values in spectral indexes. 
+        #If the occurr in NDVI, they occur in other indexes in the same row positions.
+        dropindex <- which(is.infinite(objects_clip_short$NDVI))
+        objects_clip_short <- objects_clip_short[-dropindex,]
         
         #RF prediction on full map
         Y.predicted.map <- predict(RF_complete, objects_clip_short@data[,predictors], type="response", predict.all=F, nodes=F)
