@@ -71,7 +71,7 @@ params <- list()
 ## General
 params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$run.ShpRead <- F # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
+params$run.ShpRead <- T # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
 params$run.unclassRead <- T #whether or not to read in unclass objects to build complete dataset
 ## list of all starting predictors 
 
@@ -157,10 +157,12 @@ if(params$run.ShpRead){
     tile.name <- params$tile.names[tile.idx]
     
     ## read shapefiles
+    print("read raw object")
     objects.raw <- readOGR(dsn=objects.path, layer=tile.name)
     if(is.na(sp::is.projected(objects.raw))){
       proj4string(objects.raw) <- CRS(proj4string(points.clean))
     }
+    print("raw objects read in done")
     # clip artefacts away from unclassified object edge using lidar boundary
     nDSM_bound_direc <- "E:/MetroVancouverData/nDSM_boundaries"
     source("shplist.R")
@@ -180,8 +182,10 @@ if(params$run.ShpRead){
     }
     rm(boundary.file.name)
     # now to clip using sp::over
+    print("begin clip")
     objects_backup <- objects.raw
-    objects_clip <- objects_backup[lidar_boundary,] 
+    objects_clip <- objects_backup[lidar_boundary,]
+    print("clip complete")
     
     #### Changing column names and data wrangling ----------------------------------------
     
@@ -206,6 +210,7 @@ if(params$run.ShpRead){
     
     
     #remove inf and na values (untested as of Nov 22)
+    print("start of removal of infs and NAs")
     if (sum(is.infinite(objects_clip_short@data$CoefVar_nDSM)) >= 1){
       objects_clip_short@data$CoefVar_nDSM <- replace(objects_clip_short@data$CoefVar_nDSM, 
                                                is.infinite(objects_clip_short@data$CoefVar_nDSM), 0)}
@@ -221,10 +226,10 @@ if(params$run.ShpRead){
     if (sum(is.infinite(objects_clip_short$sd_zdev)) >= 1){
       objects_clip_short$sd_zdev <- replace(objects_clip_short$sd_zdev, 
                                                is.infinite(objects_clip_short$sd_zdev), 0)}
-    
+    print("na/inf removal complete")
     #write out clipped objects
     writeOGR(objects_clip_short, objects.tmp.path, sprintf("unclass_objects_clip_%s", tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
-    
+    print("write unclass objects to temp done")
   }
   
   stopCluster(cl)
@@ -316,9 +321,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
         compl.dataset.dt <<- rbind(compl.dataset.dt, as.data.table(compl.dataset)) #need <<- ?
         print("add to compl.dataset.dt")
         #delete any inf and na values from predictor columns
-        if (sum(is.infinite(compl.dataset.dt$CoefVar_nDSM)) >= 1){
-          compl.dataset.dt$CoefVar_nDSM <- replace(compl.dataset.dt$CoefVar_nDSM, 
-                                                   is.infinite(compl.dataset.dt$CoefVar_nDSM), 0)}
+
         assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv) # can also try this: envir = parent.frame()
         assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
         # return(compl.dataset.dt)
@@ -331,9 +334,13 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   #     assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
       # return(compl.dataset.dt)
       
-      #If they occurr in NDVI, they occur in other indexes in the same row positions.
+      #Removve rows where NDVI is inf.
+      # If they occurr in NDVI, they occur in other indexes in the same row positions.
       dropindex <- which(is.infinite(compl.dataset.dt$NDVI))
       compl.dataset.dt <- compl.dataset.dt[-dropindex,]
+      print("drop NDVI infs")
+      
+      #save compl.dataset
       saveRDS(compl.dataset.dt, "compl.dataset.dt.rds")
       write.csv(compl.dataset.dt,"D:/RandomForests/compl.dataset.dt.csv")
       print("save cleaned up compl.dataset.dt")
@@ -350,18 +357,12 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   set.seed(params$seed)
   compl.dataset.dt <- readRDS("compl.dataset.dt.rds")
   print("read in compl.dataset.dt from rds")
-#   compl.dataset.dt <- read_csv("D:/RandomForests/compl.dataset.dt.csv")
-#   compl.dataset.dt$One_m_Class_2_1st_choice <- as.factor(compl.dataset.dt$One_m_Class_2_1st_choice)
-#   compl.dataset.dt$One_m_Class_3_1st_choice <- as.factor(compl.dataset.dt$One_m_Class_3_1st_choice)
-#   compl.dataset.dt$Five_m_Class_2_1st_choice <- as.factor(compl.dataset.dt$Five_m_Class_2_1st_choice)
-#   compl.dataset.dt$Five_m_Class_3_1st_choice <- as.factor(compl.dataset.dt$Five_m_Class_3_1st_choice)
   
   print("remove infs, nas")
   #If the occurr in NDVI, they occur in other indexes in the same row positions.
   dropindex <- which(is.infinite(compl.dataset.dt$NDVI))
   if(length(dropindex)>0){compl.dataset.dt <- compl.dataset.dt[-dropindex,]}
   saveRDS(compl.dataset.dt, "compl.dataset.dt.rds")
-  
   
   
   class.col <- readRDS("class.col.rds") #or assign manually from names(compl.dataset.dt)
@@ -473,28 +474,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
         new_names <- (new_names$x)
         names(objects_clip_short)
         names(objects_clip_short) <- new_names
-#         
-#         # remove inf from objects_clip_short@data[, predictors]
-#         if (sum(is.infinite(objects_clip_short@data$CoefVar_nDSM)) >= 1){
-#           objects_clip_short@data$CoefVar_nDSM <- replace(objects_clip_short@data$CoefVar_nDSM, 
-#                                                           is.infinite(objects_clip_short@data$CoefVar_nDSM), 0)}
-#         if (sum(is.infinite(objects_clip_short$sd_slope)) >= 1){
-#           objects_clip_short$sd_slope <- replace(objects_clip_short$sd_slope, 
-#                                                is.infinite(objects_clip_short$sd_slope), 0)}
-#         if (sum(is.infinite(objects_clip_short$Mean_slope)) >= 1){
-#           objects_clip_short$Mean_slope <- replace(objects_clip_short$Mean_slope, 
-#                                                  is.infinite(objects_clip_short$Mean_slope), 0)}
-#         if (sum(is.infinite(objects_clip_short$Mean_slope)) >= 1){
-#           objects_clip_short$Mean_slope <- replace(objects_clip_short$Mean_zDev, 
-#                                                  is.infinite(objects_clip_short$Mean_slope), 0)}
-#         if (sum(is.infinite(objects_clip_short$Mean_slope)) >= 1){
-#           objects_clip_short$Mean_slope <- replace(objects_clip_short$sd_zdev, 
-#                                                  is.infinite(objects_clip_short$Mean_slope), 0)}
-#         # found some Inf values in spectral indexes. 
-#         #If the occurr in NDVI, they occur in other indexes in the same row positions.
-#         dropindex <- which(is.infinite(objects_clip_short@data$NDVI))
-#         objects_clip_short <- objects_clip_short[-dropindex,]
-#         
+        
         #RF prediction on full map
         print("predict using RF_complete")
         Y.predicted.map <- predict(RF_complete, objects_clip_short@data[,predictors], type="response", predict.all=F, nodes=F)
@@ -515,6 +495,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   } ## end of loop over predictor types
   
 }  ## end of loop over GT types
+
 print("start saving RES.file")
 RES.file = file.path(results.dir, 'RESULTS_LiDAR_unclass.Rdata', fsep = .Platform$file.sep) 
 save(RES, file = RES.file)
