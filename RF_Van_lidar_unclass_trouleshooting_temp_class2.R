@@ -220,12 +220,14 @@ if(params$run.ShpRead){
     if (sum(is.infinite(objects_clip_short@data$Mean_slope)) >= 1){
       objects_clip_short@data$Mean_slope <- replace(objects_clip_short@data$Mean_slope, 
                                              is.infinite(objects_clip_short@data$Mean_slope), 0)}
-    if (sum(is.infinite(objects_clip_short$Mean_zDev)) >= 1){
+    if (sum(is.infinite(objects_clip_short@data$Mean_zDev)) >= 1){
       objects_clip_short$Mean_zDev <- replace(objects_clip_short$Mean_zDev, 
                                                is.infinite(objects_clip_short$Mean_slope), 0)}
-    if (sum(is.infinite(objects_clip_short$sd_zdev)) >= 1){
+    if (sum(is.infinite(objects_clip_short@data$sd_zdev)) >= 1){
       objects_clip_short$sd_zdev <- replace(objects_clip_short$sd_zdev, 
                                                is.infinite(objects_clip_short$sd_zdev), 0)}
+  
+    #just write for loop for all columns?
     print("na/inf removal complete")
     #write out clipped objects
     writeOGR(objects_clip_short, objects.tmp.path, sprintf("unclass_objects_clip_%s", tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
@@ -263,30 +265,53 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
         proj4string(objects_clip_short) <- CRS(proj4string(points.clean))
       }
       print("Read in object done")
-      # remove buildings, trees from objects_clip
-      names(objects_clip_short)
-      drops <- c("Building","Trees")
-      objects_clip_short <- objects_clip_short[,!(names(objects_clip_short) %in% drops)]
-      names(objects_clip_short)
-      print("Drop buildings and trees done")
+      
+      ##### ensure object variable names match parameter names ####################
       # use names from objects_table to rename objects.raw attribute table
       #read in data
       objects_table <- fread("D:\\RandomForests\\LidarObjectFeatureNames.csv") #read in data table
       objects_table <- objects_table$RNames
+      drops <- c("Building","Trees")
       drop <- which(objects_table %in% drops)
       objects_table <- objects_table[-drop]
       print("Drop buildings and trees from new names done")
       # set objects_table to names of objects_clip_short
       names(objects_clip_short) <- objects_table
-      ##### ensure object variable names match parameter names ####################
-      new_names <- read_csv(file = paste0(objects.path,"/object_names_unclass.csv")) #col_names = c("row","names")
-      new_names <- (new_names$x)
-      # names(objects_clip_short)
-      names(objects_clip_short) <- new_names
-      # names(objects_clip_short) #should be the right names!
+      
+      
+      #Removve rows where NDVI is inf.
+      # If they occurr in NDVI, they occur in other indexes in the same row positions.
+      #much of this necessary here because of value changes due to reading in to Arc for repair geometry
+      print(dim(objects_clip_short@data))
+      dropindex <- which(is.infinite(objects_clip_short$NDVI))
+      if(length(dropindex) >= 1){
+        objects_clip_short <- objects_clip_short[-dropindex,]
+        print("drop NDVI infs")}
+      print(dim(objects_clip_short@data))
+      # add mean nDSM = 0 using which wherever weird Esri NA values exist
+      dropindex <- which(objects_clip_short$Mean_nDSM < -10)
+      if(length(dropindex) >= 1){
+        objects_clip_short$Mean_nDSM[dropindex] <- 0
+      }
+      print(dim(objects_clip_short@data))
+      #in case zDev is tiny number and not inf...
+      dropindex <- which(objects_clip_short$Mean_zDev < -1000)
+      if(length(dropindex) >= 1){
+        objects_clip_short$Mean_zDev[dropindex] <- 0
+      }
+      dropindex <- which(objects_clip_short$sd_zdev > 10000)
+      if(length(dropindex) >= 1){
+        objects_clip_short$sd_zdev[dropindex] <- 0
+      }
+      print(dim(objects_clip_short@data)) 
+      
+      
+      
       #write out clipped objects
-      writeOGR(objects_clip_short, objects.tmp.path, tile.name, driver="ESRI Shapefile", overwrite_layer=TRUE)  
       print("write out unclass objects w/ modified attributes")
+      writeOGR(objects_clip_short, objects.tmp.path, tile.name, driver="ESRI Shapefile", overwrite_layer=TRUE)  
+      
+      
       ## filter points to keep only the desired GT level ("One_m" or "Five_m")
       if (gt.type == "One_m") {
         points <- subset(points.clean, Shape_Area < 10)
@@ -301,6 +326,8 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
         saveRDS(class.col,"class.col.RDS")
       }
       print("filter points for GT level done")
+      
+      
       #### SPATIAL JOIN --------------------------------------------------------------
       print("start of spatial join/compl.dataset loop")
       # spatial join the polygons with over()
@@ -315,6 +342,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
         assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
         # return(compl.dataset.dt)
         print("create initial compl.dataset.dt")
+        print(dim(compl.dataset.dt))
         first.tile <- F   ## change logical to FALSE so that 2nd part of if-else block is used from now on
       } else {
         compl.dataset.dt <- rbind(compl.dataset.dt, as.data.table(compl.dataset))
@@ -327,6 +355,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
         # return(compl.dataset.dt)
         saveRDS(compl.dataset.dt, "compl.dataset.dt.rds")
         print("assign and save compl.dataset.dt")
+        print(dim(compl.dataset.dt))
       }
       
       rm(compl.dataset)
@@ -337,8 +366,26 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       #Removve rows where NDVI is inf.
       # If they occurr in NDVI, they occur in other indexes in the same row positions.
       dropindex <- which(is.infinite(compl.dataset.dt$NDVI))
+      if(length(dropindex) >= 1){
       compl.dataset.dt <- compl.dataset.dt[-dropindex,]
-      print("drop NDVI infs")
+      print("drop NDVI infs")}
+      print(dim(compl.dataset.dt))
+      # add mean nDSM = 0 using which wherever weird Esri NA values exist
+      dropindex <- which(compl.dataset.dt$Mean_nDSM < -10)
+      if(length(dropindex) >= 1){
+      compl.dataset.dt$Mean_nDSM[dropindex] <- 0
+      }
+      print(dim(compl.dataset.dt))
+      #in case zDev is tiny number and not inf...
+      dropindex <- which(compl.dataset.dt$Mean_zDev < -1000)
+      if(length(dropindex) >= 1){
+        compl.dataset.dt$Mean_zDev[dropindex] <- 0
+        }
+      dropindex <- which(compl.dataset.dt$sd_zdev > 10000)
+      if(length(dropindex) >= 1){
+        compl.dataset.dt$sd_zdev[dropindex] <- 0
+        }
+      print(dim(compl.dataset.dt))  
       
       #save compl.dataset
       saveRDS(compl.dataset.dt, "compl.dataset.dt.rds")
