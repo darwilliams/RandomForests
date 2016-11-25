@@ -71,8 +71,8 @@ params <- list()
 ## General
 params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$run.ShpRead <- T # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
-params$run.unclassRead <- T #whether or not to read in unclass objects to build complete dataset
+params$run.ShpRead <- F # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
+params$run.unclassRead <- F #whether or not to read in unclass objects to build complete dataset
 ## list of all starting predictors 
 
 params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
@@ -94,7 +94,7 @@ rm(shplist)
 ## RF
 params$nfold <- 4
 params$seed <- 2016        ## seed to have same RF result
-params$parallel.RF <- T    ## whether to run RF in parallel or not ###Giona, is this used anywhere?
+params$parallel.RF <- T    ## whether to run RF in parallel or not ###Giona, is this used anywhere? ####
 params$ntree <- 100     ## RF nr of trees
 params$mtry <- 'sqrt_nr_var'  ## how to set RF mtry: 'sqrt_nr_var' or 'nr_var_div_3'
 params$nodesize <- 1   ## RF nodesize: default for classification is 1
@@ -315,22 +315,11 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       print("write out unclass objects w/ modified attributes")
       writeOGR(objects_clip_short, objects.tmp.path, tile.name, driver="ESRI Shapefile", overwrite_layer=TRUE)  
       
+      ##test to see if moving the if statements that filter points by ground truth will work below
+      ##this is important because it needs to be after the modification on the unclass objects,
+      ## which has been set to false
       ## filter points to keep only the desired GT level ("One_m" or "Five_m")
-      if (gt.type == "One_m") {
-        points <- subset(points.clean, Shape_Area < 10)
-        class.col <- "One_m_Class_3_1st_choice"
-        class.col <<- "One_m_Class_3_1st_choice"
-        saveRDS(class.col,"class.col.RDS")
-      } else if (gt.type == "Five_m") {
-        points <- subset(points.clean, Shape_Area > 10) # see if this change improves things somehow
-        # points <- subset(points.clean, Shape_Area > 10 & Onem_Class_2_1st_choice == Fivem_Class_2_1st_choice) ## watch out for names (to be changed)!
-        class.col <- "Five_m_Class_3_1st_choice"
-        class.col <<- "Five_m_Class_3_1st_choice"
-        saveRDS(class.col,"class.col.RDS")
-      }
-      print("filter points for GT level done")
-      
-      
+
       #### SPATIAL JOIN --------------------------------------------------------------
       print("start of spatial join/compl.dataset loop")
       # spatial join the polygons with over()
@@ -396,10 +385,10 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       print("save cleaned up compl.dataset.dt")
       
       
-    }
+    } ## end loop over unclass tiles
     # stopCluster(cl)
     
-  }
+  } ## end of if statement choosing whether to read in unclass tiles for modification and building of compl.dataset
   print("end of spatial join/compl.dataset loop")
   
   
@@ -407,8 +396,22 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   set.seed(params$seed)
   compl.dataset.dt <- readRDS("compl.dataset.dt.rds")
   print("read in compl.dataset.dt from rds")
+  
+  if (gt.type == "One_m") {
+    points <- subset(points.clean, Shape_Area < 10)
+    class.col <- "One_m_Class_3_1st_choice"
+    class.col <<- "One_m_Class_3_1st_choice"
+    saveRDS(class.col,"class.col.RDS")
+  } else if (gt.type == "Five_m") {
+    points <- subset(points.clean, Shape_Area > 10) # see if this change improves things somehow
+    # points <- subset(points.clean, Shape_Area > 10 & Onem_Class_2_1st_choice == Fivem_Class_2_1st_choice) ## watch out for names (to be changed)!
+    class.col <- "Five_m_Class_3_1st_choice"
+    class.col <<- "Five_m_Class_3_1st_choice"
+    saveRDS(class.col,"class.col.RDS")
+  }
+  print("filter points for GT level done")
 
-  class.col <- readRDS("class.col.rds") #or assign manually from names(compl.dataset.dt)
+  # class.col <- readRDS("class.col.rds")
   folds <- createFolds(compl.dataset.dt[[class.col]], k=params$nfold, list=F)  ## [[]] to access column of dt as vector
   print("read in class.col and create folds done")
   
