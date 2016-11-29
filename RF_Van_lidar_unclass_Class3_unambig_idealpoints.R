@@ -61,7 +61,7 @@ objects.filename.list <- str_replace(objectslist,pattern = "E:/MetroVancouverDat
 objects.filename.list <- str_replace(objects.filename.list,pattern = ".shp",replacement = "")
 
 # set points filename
-points.filename <- "MetroVan_gt_Bins1_16_tidy_unambig"
+points.filename <- "MetroVan_gt_Bins1_16_ideal"
 
 #### PARAMETERS ---------------------------------------------
 
