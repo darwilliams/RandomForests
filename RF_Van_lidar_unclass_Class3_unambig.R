@@ -411,7 +411,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   }
   print("filter points for GT level done")
 
-  # class.col <- readRDS("class.col.rds")
+  # class.col <- readRDS("class.col.rds") #may not be necesasry any longer
   folds <- createFolds(compl.dataset.dt[[class.col]], k=params$nfold, list=F)  ## [[]] to access column of dt as vector
   print("read in class.col and create folds done")
   
