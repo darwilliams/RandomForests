@@ -71,8 +71,8 @@ params <- list()
 ## General
 params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$run.ShpRead <- F # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
-params$run.unclassRead <- F #whether or not to read in unclass objects to build complete dataset
+params$run.ShpRead <- T # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
+params$run.unclassRead <- T #whether or not to read in unclass objects to build complete dataset
 ## list of all starting predictors 
 
 params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
@@ -252,6 +252,9 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
     objectlist <- str_subset(shplist$V1, "unclas")
     objectlist <- str_replace(objectlist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/temp/",replacement = "")
     objectlist <- str_replace(objectlist,pattern = ".shp",replacement = "")
+    
+    #assign points.clean to points (important for over() below)
+    points <- points.clean
     
     #	  uncomment stopCluster(cl) below if uncommenting this and vice versa 
   #   cl <- makeCluster(params$nr.clusters)
