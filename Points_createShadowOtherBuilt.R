@@ -182,6 +182,23 @@ points.clean@data$Five_m_Class_2_2nd_choice[OB_5m_1choice_index] <- NA
 points.clean@data$Five_m_Class_3_1st_choice[OB_5m_1choice_index]
 points.clean@data$Five_m_Class_3_2nd_choice[OB_5m_1choice_index] <- NA
 
+#### make other_built names consistent ####################################################
+#is there a consistent set of other built points now?
+which(points.clean@data$One_m_Class_2_1st_choice == "Other_Built")
+which(points.clean@data$One_m_Class_3_1st_choice == "Other_Built")
+which(points.clean@data$Five_m_Class_2_1st_choice == "Other_built")
+which(points.clean@data$Five_m_Class_3_1st_choice == "Other_built")
+
+#yes. So choose a spelling and stick with it. 
+
+points.clean@data$One_m_Class_2_1st_choice <- points.clean@data$One_m_Class_2_1st_choice %>% 
+  gsub(pattern = "^Other_Built$", replacement = "Other_built")
+points.clean@data$One_m_Class_2_1st_choice <- as.factor(points.clean@data$One_m_Class_2_1st_choice)
+
+points.clean@data$One_m_Class_3_1st_choice <- points.clean@data$One_m_Class_3_1st_choice %>% 
+  gsub(pattern = "^Other_Built$", replacement = "Other_built")
+points.clean@data$One_m_Class_3_1st_choice <- as.factor(points.clean@data$One_m_Class_3_1st_choice)
+
 #### Write out points ####
 points.path <- "E:\\MetroVancouverData\\Training_Validation_Points"
 points.filename <- "MetroVan_gt_Bins1_16_tidy_shadow_OtherBuilt"

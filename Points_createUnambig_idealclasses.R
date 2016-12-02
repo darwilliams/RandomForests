@@ -41,7 +41,7 @@ for (pack in list.of.packages){
 
 #### Read in Data and set names ####
 points.path <- "E:\\MetroVancouverData\\Training_Validation_Points"
-points.filename <- "MetroVan_gt_Bins1_16_tidy_shadow_OtherBuilt_unambig"
+points.filename <- "MetroVan_gt_Bins1_16_ideal"
 points.clean <- readOGR(dsn=points.path, layer=points.filename)
 points.names <- read_csv(file.path(points.path,"points_variables_tidy.csv"),col_names = FALSE)
 names(points.clean@data) <- points.names$X1
@@ -121,6 +121,7 @@ points.clean@data$Five_m_Class_3_1st_choice <- points.clean@data$Five_m_Class_3_
 
 points.clean@data$Five_m_Class_3_1st_choice <- as.factor(points.clean@data$Five_m_Class_3_1st_choice)
 levels(points.clean@data$Five_m_Class_3_1st_choice)
+
 
 #why is there vegetation in class 3?
 vegindex <- which(points.clean@data$Five_m_Class_3_1st_choice == "Vegetation")
