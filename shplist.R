@@ -13,4 +13,6 @@ shplist <- function(directory){
   colnames(shplist) <- NULL
   write.csv(shplist, file = paste0(directory,"/shplist.txt"), quote = FALSE, row.names = FALSE)
   shplist <<- read.csv(file = paste0(directory,"/shplist.txt"), header = FALSE,sep = ",")
-  shplist_direc <<- paste0(directory,"/shplist.txt")}
+  shplist_direc <<- paste0(directory,"/shplist.txt")
+  # return shplist_direc
+}

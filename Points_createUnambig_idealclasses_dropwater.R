@@ -59,6 +59,7 @@ waterindex <- which(points.clean@data$Five_m_Class_3_1st_choice == "Water")
 points.clean@data[waterindex,] %>% 
   select(Bin, Five_m_Class_3_1st_choice)
 
+
 #### write out new points ##############################################
 points.path <- "E:\\MetroVancouverData\\Training_Validation_Points"
 points.filename <- "MetroVan_gt_Bins1_16_ideal_lesswater"

@@ -1,3 +1,5 @@
+#### RF_Van_lidar_trees_Class3_unambig
+
 #### INIT ------------------------------------------------------
 rm(list=ls())  ## remove all variables
 
@@ -45,19 +47,19 @@ base.dir <- "E:/MetroVancouverData"    ## base working directory
 objects.path <- file.path(base.dir, "eCog_output/LiDAR_areas/", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
 
 points.path <- file.path(base.dir, "Training_Validation_Points/", fsep = .Platform$file.sep)   ## data directory (nothing should be written here)
-results.dir <- file.path(base.dir, "eCog_output/LiDAR_areas/LiDAR_Results", fsep = .Platform$file.sep)   ## results directory (outputs go here)
+results.dir <- file.path(base.dir, "eCog_output/LiDAR_areas/LiDAR_Results/Trees/LiDAR_Results", fsep = .Platform$file.sep)   ## results directory (outputs go here)
 dir.create(results.dir)
-figures.dir <- file.path(base.dir, "eCog_output/LiDAR_areas/LiDAR_Figures", fsep = .Platform$file.sep)   ## figures directory (figures go here)
+figures.dir <- file.path(base.dir, "eCog_output/LiDAR_areas/LiDAR_Results/Trees/LiDAR_Figures", fsep = .Platform$file.sep)   ## figures directory (figures go here)
 dir.create(figures.dir)
 temp.dir <- file.path(results.dir, "temp")  ## directory for temporary files like the segmentation shps (overwritten each time)
 if (!file.exists(temp.dir)) {dir.create(temp.dir, showWarnings=F, recursive=T)}  ## create it
-objects.tmp.path <- "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/temp"
+objects.tmp.path <- "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/Trees/temp"
 
 #create list of object names
 source("shplist.R")
 # shplist_direc <- shplist(objects.path)
 shplist(objects.path)
-objectslist <- str_subset(shplist$V1, "unclas")
+objectslist <- str_subset(shplist$V1, "trees1")
 objects.filename.list <- str_replace(objectslist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/",replacement = "")
 objects.filename.list <- str_replace(objects.filename.list,pattern = ".shp",replacement = "")
 
@@ -72,17 +74,16 @@ params <- list()
 ## General
 params$GT.types <- c("One_m", "Five_m")   ## type of GT (to be put in a loop to see both results)
 params$predictor.types <- c("all","spectral","LiDAR","geometric")
-params$run.ShpRead <- F # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
+params$run.ShpRead <- T # set to T if shapefiles have never been read in, set to F if they have, so that code can be run from start
 params$run.unclassRead <- T #whether or not to read in unclass objects to build complete dataset
 ## list of all starting predictors 
 
 #### GIONA ####  shouldnt this match/be set wrt LidarObjectFeatureNames.csv? One of the two parts is redundant...
-params$predictors.spectral <- c("Bright_vis", "GLCMCon_NIR", "GLCMHomNIR", "Imag_Brightness", 
-                                "Mean_Blue", "Mean_Green", "Mean_Red","Mean_RE","Mean_NIR","NDRE", 
-                                "NDVI", "NDVIRE","NIR_div_RE","SAVI","sd_red", 
+#note absence of GLCM metrics
+params$predictors.spectral <- c("Bright_vis", "Imag_Brightness", "Mean_Blue", "Mean_Green", "Mean_Red","Mean_RE",
+                                "Mean_NIR","NDRE", "NDVI", "NDVIRE","NIR_div_RE","SAVI","sd_red", 
                                 "sd_blue","sd_green", "sd_RE", "sd_NIR")
-params$predictors.LiDAR <- c("CoefVar_nDSM", "GLCMCon_nDSM", "GLCMHom_nDSM", 
-                             "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
+params$predictors.LiDAR <- c("CoefVar_nDSM", "MaxHtMinHt", "Mean_nDSM", "Mean_slope", "Mean_zDev", 
                              "sd_ndsm", "sd_slope", "sd_zdev") 
 params$predictors.geometric <-  c("Border_ind", "Compactnes", "Density", "EllipticFi",
                                   "Len_div_Width", "RectangFit","RelBord_bldg",
@@ -97,7 +98,6 @@ rm(shplist)
 ## RF
 params$nfold <- 4
 params$seed <- 2016        ## seed to have same RF result
-params$parallel.RF <- T    ## whether to run RF in parallel or not ###Giona, is this used anywhere? ####
 params$ntree <- 100     ## RF nr of trees
 params$mtry <- 'sqrt_nr_var'  ## how to set RF mtry: 'sqrt_nr_var' or 'nr_var_div_3'
 params$nodesize <- 1   ## RF nodesize: default for classification is 1
@@ -145,18 +145,15 @@ names (points.clean) <- points.names$X1
 names(points.clean)
 
 
-#### GIONA #### this part is also redundant with same bit of code above #
-# - addressed: objects always must be renamed after being read in. 
-# They shouldn't have buildings or trees anymore, though.
 ##### ensure object variable names match parameter names ####################
 # use names from objects_table to rename objects.raw attribute table
 #read in data
 objects_table <- fread("D:\\RandomForests\\LidarObjectFeatureNames.csv") #read in data table
 objects_table <- objects_table$RNames
-drops <- c("Building","Trees")
+drops <- c("Building","Trees","GLCMCon_NIR","GLCMCon_nDSM","GLCMHom_nDSM","GLCMHomNIR")
 drop <- which(objects_table %in% drops)
 objects_table <- objects_table[-drop]
-print("Drop buildings and trees from new names done")
+print("Drop buildings,trees, GLCM metrics from new names done")
 
 
 #### Start clipping loop ---------------------------------------
@@ -166,7 +163,7 @@ if(params$run.ShpRead){
   # uncomment stopCluster(cl) below if uncommenting this 
   cl <- makeCluster(params$nr.clusters) ## to uncomment when running in parallel, after successful debugging
   registerDoParallel(cl)
-  
+#   
   #### Clip input objects to nDSM boundaries ####  
   foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {
     # for (tile.idx in 1:length(params$tile.names)) {   
@@ -211,13 +208,7 @@ if(params$run.ShpRead){
     drops <- c("Building","Trees")
     objects_clip_short <- objects_clip[,!(names(objects_clip) %in% drops)]
     names(objects_clip_short)
-    
-    # use names from objects_table to rename objects.raw attribute table
-    #read in data
-    objects_table <- fread("D:\\RandomForests\\LidarObjectFeatureNames.csv") #read in data table
-    objects_table <- objects_table$RNames
-    drop <- which(objects_table %in% drops)
-    objects_table <- objects_table[-drop]
+  
     # set objects_table to names of objects_clip_short
     names(objects_clip_short) <- objects_table
     
@@ -225,19 +216,19 @@ if(params$run.ShpRead){
     print("start of removal of infs and NAs")
     if (sum(is.infinite(objects_clip_short@data$CoefVar_nDSM)) >= 1){
       objects_clip_short@data$CoefVar_nDSM <- replace(objects_clip_short@data$CoefVar_nDSM, 
-                                               is.infinite(objects_clip_short@data$CoefVar_nDSM), 0)}
+                                                      is.infinite(objects_clip_short@data$CoefVar_nDSM), 0)}
     if (sum(is.infinite(objects_clip_short@data$sd_slope)) >= 1){
       objects_clip_short@data$sd_slope <- replace(objects_clip_short@data$sd_slope, 
-                                           is.infinite(objects_clip_short@data$sd_slope), 0)}
+                                                  is.infinite(objects_clip_short@data$sd_slope), 0)}
     if (sum(is.infinite(objects_clip_short@data$Mean_slope)) >= 1){
       objects_clip_short@data$Mean_slope <- replace(objects_clip_short@data$Mean_slope, 
-                                             is.infinite(objects_clip_short@data$Mean_slope), 0)}
+                                                    is.infinite(objects_clip_short@data$Mean_slope), 0)}
     if (sum(is.infinite(objects_clip_short@data$Mean_zDev)) >= 1){
       objects_clip_short$Mean_zDev <- replace(objects_clip_short$Mean_zDev, 
-                                               is.infinite(objects_clip_short$Mean_slope), 0)}
+                                              is.infinite(objects_clip_short$Mean_slope), 0)}
     if (sum(is.infinite(objects_clip_short@data$sd_zdev)) >= 1){
       objects_clip_short$sd_zdev <- replace(objects_clip_short$sd_zdev, 
-                                               is.infinite(objects_clip_short$sd_zdev), 0)}
+                                            is.infinite(objects_clip_short$sd_zdev), 0)}
     
     #Copied from below to check if all the data cleaning can be done in one place.
     #Removve rows where NDVI is inf.
@@ -271,21 +262,21 @@ if(params$run.ShpRead){
       objects_clip_short$MaxHtMinHt[dropindex] <- 0
     }
     print(dim(objects_clip_short@data))
-    #### GIONA ####
-  
+    
+    
     #just write for loop for all columns?
     print("na/inf removal complete")
     #write out clipped objects
-    writeOGR(objects_clip_short, objects.tmp.path, sprintf("unclass_objects_clip_%s", tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
+    writeOGR(objects_clip_short, objects.tmp.path, sprintf("trees_objects_clip_%s", tile.name), driver="ESRI Shapefile", overwrite_layer=TRUE)  
     print("write unclass objects to temp done")
   }
   
   stopCluster(cl)
   
-  #### GIONA #### shouldnt this go out of the loop over tiles? does not depend on tile, right? - addressed
+  
   #save object names to a file that can be later, if necessary. Useful for internal consistency.
-  object_names <- names(objects_clip_short)
-  write.csv(x = object_names,file = paste0(objects.path,"/object_names_unclass.csv"),row.names = FALSE,col.names = FALSE)
+  # object_names <- names(objects_clip_short)
+  # write.csv(x = object_names,file = paste0(objects.tmp.path,"/object_names_unclass.csv"),row.names = FALSE,col.names = FALSE)
 }
 
 
@@ -294,23 +285,22 @@ if(params$run.ShpRead){
 RES <- list()  ## initialize list object to store results
 for (gt.type in params$GT.types) {  ## loop using one or five m ground truth polys
   
-  if(params$run.unclassRead){     #### GIONA #### why this if block - addressed: to avoid reading in unclass objects and building compl.dataset.dt again
-
+  if(params$run.unclassRead){  
+    
     first.tile <- T ## to execute specific code for the first tile only (initialize the big shapefiles)
     
-    #### GIONA #### source() at the beginning only
     #addressed
     source("shplist.R")
     shplist(objects.tmp.path)
     objectlist <- shplist
-    objectlist <- str_subset(shplist$V1, "unclas")
-    objectlist <- str_replace(objectlist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/temp/",replacement = "")
+    objectlist <- str_subset(shplist$V1, "trees1")
+    objectlist <- str_replace(objectlist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/Trees/temp/",replacement = "")
     objectlist <- str_replace(objectlist,pattern = ".shp",replacement = "")
-
+    
     #	  uncomment stopCluster(cl) below if uncommenting this and vice versa 
-  #   cl <- makeCluster(params$nr.clusters)
-  #   registerDoParallel(cl)
-  #   foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
+    #   cl <- makeCluster(params$nr.clusters)
+    #   registerDoParallel(cl)
+    #   foreach (tile.idx = 1:length(params$tile.names), .packages=list.of.packages) %dopar% {   
     for (tile.idx in 1:length(objectlist)) {
       
       tile.name <- objectlist[tile.idx]
@@ -322,10 +312,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       
       # set objects_table to names of objects_clip_short
       names(objects_clip_short) <- objects_table
-      #### GIONA ####
-      
-      #### GIONA #### this part should go in the loop above so that all the cleaning is done in the same place
-      #addressed - added above, but see comment below about Arc creating wierd numbers
+     
       #Removve rows where NDVI is inf.
       # If they occurr in NDVI, they occur in other indexes in the same row positions.
       #much of this necessary here because of value changes due to reading in to Arc for repair geometry
@@ -357,7 +344,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
         objects_clip_short$MaxHtMinHt[dropindex] <- 0
       }
       print(dim(objects_clip_short@data))
-      #### GIONA ####
+      
       
       #write out clipped objects
       print("write out unclass objects w/ modified attributes")
@@ -367,7 +354,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       ##this is important because it needs to be after the modification on the unclass objects,
       ## which has been set to false
       ## filter points to keep only the desired GT level ("One_m" or "Five_m")
-
+      
       #### SPATIAL JOIN --------------------------------------------------------------
       print("start of spatial join/compl.dataset loop")
       # spatial join the polygons with over()
@@ -377,9 +364,9 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       print("spatial join b/w objects and points done")
       if (first.tile) {
         compl.dataset.dt <- as.data.table(compl.dataset)
-#         compl.dataset.dt <<- as.data.table(compl.dataset)   #### GIONA #### still dont get why this <<- or assign() is necessary. Was it when you tried to go parallel with foreach() ?
-#         assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv)
-#         assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
+        #         compl.dataset.dt <<- as.data.table(compl.dataset)   #### GIONA #### still dont get why this <<- or assign() is necessary. Was it when you tried to go parallel with foreach() ?
+        #         assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv)
+        #         assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
         # return(compl.dataset.dt)
         print("create initial compl.dataset.dt")
         print(dim(compl.dataset.dt))
@@ -389,9 +376,9 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
         # compl.dataset.dt <<- rbind(compl.dataset.dt, as.data.table(compl.dataset)) #need <<- ?  #### GIONA #### same here
         print("add to compl.dataset.dt")
         #delete any inf and na values from predictor columns
-
-#         assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv) # can also try this: envir = parent.frame()
-#         assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
+        
+        #         assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv) # can also try this: envir = parent.frame()
+        #         assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
         # return(compl.dataset.dt)
         # saveRDS(compl.dataset.dt, "compl.dataset.dt.rds")   #### GIONA #### saving the complete dataset should not go here bc it is still growing (dynamically adding rows as tiles come in)
         print("assign and save compl.dataset.dt")
@@ -399,16 +386,16 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       }
       
       rm(compl.dataset)
-  #     assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv)
-  #     assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
+      #     assign("compl.dataset.dt",compl.dataset.dt,envir = .GlobalEnv)
+      #     assign("compl.dataset.dt",compl.dataset.dt,envir = parent.frame())
       # return(compl.dataset.dt)
       
     } ## end loop over unclass tiles
     # stopCluster(cl)
     #### GIONA #### this should go outside of the loop over the tiles bc we want the complete dataset to be saved only once. Also, why do we save it as a csv and as a rds?
     #addressed
-    saveRDS(compl.dataset.dt, "compl.dataset.dt.rds")
-    write.csv(compl.dataset.dt,"D:/RandomForests/compl.dataset.dt.csv")
+    saveRDS(compl.dataset.dt, "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/Trees/compl.dataset.dt.rds")
+    write.csv(compl.dataset.dt,"E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/Trees/compl.dataset.dt.csv")
     print("save cleaned up compl.dataset.dt")
     
   } ## end of if statement choosing whether to read in unclass tiles for modification and building of compl.dataset
@@ -417,23 +404,23 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
   
   #### Create n-fold CV indicators------------------------------------
   set.seed(params$seed)
-  compl.dataset.dt <- readRDS("compl.dataset.dt.rds")
+  compl.dataset.dt <- readRDS("E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/Trees/compl.dataset.dt.rds")
   print("read in compl.dataset.dt from rds")
   
   if (gt.type == "One_m") {
     points <- subset(points.clean, Shape_Area < 10)
     class.col <- "One_m_Class_3_1st_choice"
-#     class.col <<- "One_m_Class_3_1st_choice"   #### GIONA #### again why this <<- ?
-#     saveRDS(class.col,"class.col.RDS")
+    #     class.col <<- "One_m_Class_3_1st_choice"   #### GIONA #### again why this <<- ?
+    #     saveRDS(class.col,"class.col.RDS")
   } else if (gt.type == "Five_m") {
     points <- subset(points.clean, Shape_Area > 10) # see if this change improves things somehow
     # points <- subset(points.clean, Shape_Area > 10 & Onem_Class_2_1st_choice == Fivem_Class_2_1st_choice) ## watch out for names (to be changed)!
     class.col <- "Five_m_Class_3_1st_choice"
-#     class.col <<- "Five_m_Class_3_1st_choice"
-#     saveRDS(class.col,"class.col.RDS")
+    #     class.col <<- "Five_m_Class_3_1st_choice"
+    #     saveRDS(class.col,"class.col.RDS")
   }
   print("filter points for GT level done")
-
+  
   # class.col <- readRDS("class.col.rds") #may not be necesasry any longer
   folds <- createFolds(compl.dataset.dt[[class.col]], k=params$nfold, list=F)  ## [[]] to access column of dt as vector
   print("read in class.col and create folds done")
@@ -524,8 +511,8 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
       source("shplist.R")
       shplist(objects.tmp.path)
       objectlist <- shplist
-      objectlist <- str_subset(shplist$V1, "unclas")
-      objectlist <- str_replace(objectlist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/temp/",replacement = "")
+      objectlist <- str_subset(shplist$V1, "trees1")
+      objectlist <- str_replace(objectlist,pattern = "E:/MetroVancouverData/eCog_output/LiDAR_areas/LiDAR_Results/Trees/temp/",replacement = "")
       objectlist <- str_replace(objectlist,pattern = ".shp",replacement = "")
       
       
@@ -539,10 +526,7 @@ for (gt.type in params$GT.types) {  ## loop using one or five m ground truth pol
         tile.name <- objectlist[tile.idx]
         
         objects_clip_short <- readOGR(dsn = objects.tmp.path, layer = tile.name)
-        new_names <- read_csv(file = paste0(objects.path,"/object_names_unclass.csv")) #col_names = c("row","names")    #### GIONA #### these objects have not been filtered, still contain infs, etc.
-        new_names <- (new_names$x)
-        names(objects_clip_short)
-        names(objects_clip_short) <- new_names
+        names(objects_clip_short) <- objects_table
         
         #RF prediction on full map
         print("predict using RF_complete")

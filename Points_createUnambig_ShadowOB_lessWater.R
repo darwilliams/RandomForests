@@ -59,10 +59,22 @@ waterindex <- which(points.clean@data$Five_m_Class_3_1st_choice == "Water")
 points.clean@data[waterindex,] %>% 
   select(Bin, Five_m_Class_3_1st_choice)
 
+#Remove veg points in class 3
+vegindex <- which(points.clean@data$Five_m_Class_3_1st_choice == "Vegetation")
+points.clean@data[vegindex,]
+
+points.clean@data$Five_m_Class_3_1st_choice <- points.clean@data$Five_m_Class_3_1st_choice %>% 
+  gsub(pattern = "^Vegetation$", replacement = "Modified_G-H")
+
+points.clean@data$Five_m_Class_3_1st_choice <- as.factor(points.clean@data$Five_m_Class_3_1st_choice)
+levels(points.clean@data$Five_m_Class_3_1st_choice)
+
+str(points.clean@data)
+
 #### write out new points ##############################################
 points.path <- "E:\\MetroVancouverData\\Training_Validation_Points"
 points.filename <- "MetroVan_gt_Bins1_16_tidy_shadow_OtherBuilt_unambig_lesswater"
-writeOGR(points.unambig, points.path, points.filename, driver="ESRI Shapefile", overwrite_layer=TRUE)
+writeOGR(points.clean, points.path, points.filename, driver="ESRI Shapefile", overwrite_layer=TRUE)
 ##### End ###############
 
 
